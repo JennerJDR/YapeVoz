@@ -15,7 +15,7 @@ jobs:
       - name: Descomprimir proyecto 1.2
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Android-1.2.zip -d buildsrc
+          unzip -q YapeVoz-Android-1.2-corregido.zip -d buildsrc
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
