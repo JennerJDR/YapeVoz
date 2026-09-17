@@ -34,7 +34,7 @@ jobs:
           gradle-version: '8.10'
 
       - name: Corregir compatibilidad Java y Kotlin
-        working-directory: buildsrc
+        working-directory: buildsrc/src
         run: |
           cat >> app/build.gradle.kts <<'EOF'
 
@@ -50,11 +50,11 @@ jobs:
           EOF
 
       - name: Compilar APK
-        working-directory: buildsrc
+        working-directory: buildsrc/src
         run: gradle assembleDebug --no-daemon
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
           name: YapeVoz-APK-1.2
-          path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
+          path: buildsrc/src/app/build/outputs/apk/debug/app-debug.apk
