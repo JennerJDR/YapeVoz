@@ -3,9 +3,6 @@ name: Construir APK Yape Voz
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'YapeVoz-Android-1.0.zip'
-      - '.github/workflows/build.yml'
 
 jobs:
   build:
@@ -17,17 +14,16 @@ jobs:
 
       - name: Descomprimir proyecto
         run: |
-          rm -rf buildsrc
-          mkdir buildsrc
+          mkdir -p buildsrc
           unzip -q YapeVoz-Android-1.0.zip -d buildsrc
 
-      - name: Configurar Java 17
+      - name: Configurar Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android SDK
+      - name: Configurar Android
         uses: android-actions/setup-android@v4
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
