@@ -33,7 +33,7 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Ajustar Java y Kotlin a 17
+      - name: Corregir proyecto
         working-directory: buildsrc
         run: |
           python3 - <<'PY'
@@ -42,22 +42,42 @@ jobs:
           p = Path("app/build.gradle.kts")
           s = p.read_text()
 
-          addition = '''
+          s += '''
           
           android {
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
-              
               kotlinOptions {
                   jvmTarget = "17"
               }
           }
           '''
 
-          if 'sourceCompatibility = JavaVersion.VERSION_17' not in s:
-              s += addition
+          p.write_text(s)
+
+          p = Path("app/src/main/java/pe/yapevoz/YapeNotificationListener.kt")
+          s = p.read_text()
+
+          s = s.replace(
+              '''        fun testSpeech(context: Context) {
+              val t = TextToSpeech(context) { result ->
+                  if (result == TextToSpeech.SUCCESS) {
+                      t.language = Locale("es", "PE")
+                      t.speak("Prueba de Yape Voz. El lector de pagos está funcionando.", TextToSpeech.QUEUE_FLUSH, null, "test")
+                  }
+              }
+          }''',
+              '''        fun testSpeech(context: Context) {
+              val tts = TextToSpeech(context) { result ->
+                  if (result == TextToSpeech.SUCCESS) {
+                      tts.language = Locale("es", "PE")
+                      tts.speak("Prueba de Yape Voz. El lector de pagos está funcionando.", TextToSpeech.QUEUE_FLUSH, null, "test")
+                  }
+              }
+          }'''
+          )
 
           p.write_text(s)
           PY
