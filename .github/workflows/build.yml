@@ -12,10 +12,10 @@ jobs:
       - name: Descargar proyecto
         uses: actions/checkout@v4
 
-      - name: Descomprimir proyecto 2.0 Pro
+      - name: Descomprimir proyecto 2.0 Pro corregido
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Android-2.0-Pro.zip -d buildsrc
+          unzip -q YapeVoz-Android-2.0-Pro-corregido-final.zip -d buildsrc
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -52,7 +52,8 @@ jobs:
 
       - name: Compilar APK
         working-directory: buildsrc
-        run: gradle assembleDebug --no-daemon
+        run: |
+          gradle assembleDebug --no-daemon
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
