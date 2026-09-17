@@ -39,11 +39,13 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # Corregir Java/Kotlin
           p = Path("app/build.gradle.kts")
           s = p.read_text()
 
-          s += '''
-          
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
+              s += """
+              
           android {
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -53,31 +55,20 @@ jobs:
                   jvmTarget = "17"
               }
           }
-          '''
+          """
 
           p.write_text(s)
 
+          # Corregir TextToSpeech
           p = Path("app/src/main/java/pe/yapevoz/YapeNotificationListener.kt")
           s = p.read_text()
 
           s = s.replace(
-              '''        fun testSpeech(context: Context) {
-              val t = TextToSpeech(context) { result ->
-                  if (result == TextToSpeech.SUCCESS) {
-                      t.language = Locale("es", "PE")
-                      t.speak("Prueba de Yape Voz. El lector de pagos está funcionando.", TextToSpeech.QUEUE_FLUSH, null, "test")
-                  }
-              }
-          }''',
-              '''        fun testSpeech(context: Context) {
-              val tts = TextToSpeech(context) { result ->
-                  if (result == TextToSpeech.SUCCESS) {
-                      tts.language = Locale("es", "PE")
-                      tts.speak("Prueba de Yape Voz. El lector de pagos está funcionando.", TextToSpeech.QUEUE_FLUSH, null, "test")
-                  }
-              }
-          }'''
+              'val t = TextToSpeech(context) { result ->',
+              'lateinit var tts: TextToSpeech\n            tts = TextToSpeech(context) { result ->'
           )
+          s = s.replace('t.language = Locale("es", "PE")', 'tts.language = Locale("es", "PE")')
+          s = s.replace('t.speak("Prueba de Yape Voz.', 'tts.speak("Prueba de Yape Voz.')
 
           p.write_text(s)
           PY
