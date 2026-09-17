@@ -33,6 +33,35 @@ jobs:
         with:
           gradle-version: '8.10'
 
+      - name: Ajustar Java y Kotlin a 17
+        working-directory: buildsrc
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+
+          addition = '''
+          
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          '''
+
+          if 'sourceCompatibility = JavaVersion.VERSION_17' not in s:
+              s += addition
+
+          p.write_text(s)
+          PY
+
       - name: Compilar APK
         working-directory: buildsrc
         run: gradle assembleDebug --no-daemon
