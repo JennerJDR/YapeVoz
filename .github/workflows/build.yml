@@ -61,3 +61,7 @@ jobs:
           gradle assembleDebug --no-daemon
 
       - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YapeVoz-APK-2.3-Pro
+          path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
