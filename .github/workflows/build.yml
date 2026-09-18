@@ -1,4 +1,4 @@
-name: Construir APK Yape Voz Pro 2.4
+name: Construir APK Yape Voz Pro 2.6
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Android-2.4-Pro-final.zip
+          test -f YapeVoz-Android-2.6-Pro-final.zip
 
-      - name: Descomprimir proyecto 2.4 Pro
+      - name: Descomprimir proyecto 2.6 Pro
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Android-2.4-Pro-final.zip -d buildsrc
+          unzip -q YapeVoz-Android-2.6-Pro-final.zip -d buildsrc
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -63,5 +63,5 @@ jobs:
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.4-Pro
+          name: YapeVoz-APK-2.6-Pro
           path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
