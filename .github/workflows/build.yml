@@ -41,19 +41,17 @@ jobs:
       - name: Configurar Java y Kotlin 17
         working-directory: buildsrc
         run: |
-          cat >> app/build.gradle.kts <<'EOF'
-
-          android {
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
+          printf '%s\n' \
+            '' \
+            'android {' \
+            '    compileOptions {' \
+            '        sourceCompatibility = JavaVersion.VERSION_17' \
+            '        targetCompatibility = JavaVersion.VERSION_17' \
+            '    }' \
+            '    kotlinOptions {' \
+            '        jvmTarget = "17"' \
+            '    }' \
+            '}' >> app/build.gradle.kts
 
       - name: Compilar APK
         working-directory: buildsrc
@@ -65,4 +63,3 @@ jobs:
         with:
           name: YapeVoz-APK-2.6.1-Pro
           path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
-```0
