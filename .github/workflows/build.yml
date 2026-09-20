@@ -1,4 +1,4 @@
-name: Construir APK Yape Voz Pro 2.6.6
+name: Construir APK Yape Voz Pro 2.6.6 Corregido
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Android-2.6.6-Pro-icono-final.zip
+          test -f YapeVoz-Android-2.6.6-Pro-icono-final-corregido.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Android-2.6.6-Pro-icono-final.zip -d buildsrc
+          unzip -q YapeVoz-Android-2.6.6-Pro-icono-final-corregido.zip -d buildsrc
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -59,11 +59,12 @@ jobs:
       - name: Compilar APK
         run: |
           PROJECT_DIR=$(dirname "$(find buildsrc -name settings.gradle.kts -print -quit)")
+          echo "Compilando desde: $PROJECT_DIR"
           cd "$PROJECT_DIR"
           gradle assembleDebug --no-daemon
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.6.6
+          name: YapeVoz-APK-2.6.6-Corregido
           path: buildsrc/**/app/build/outputs/apk/debug/app-debug.apk
