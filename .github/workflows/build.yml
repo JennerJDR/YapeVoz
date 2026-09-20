@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Pro-2.7.2.zip
+          test -f YapeVoz-Pro-2.7.2-corregido.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Pro-2.7.2.zip -d buildsrc
+          unzip -q YapeVoz-Pro-2.7.2-corregido.zip -d buildsrc
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -52,19 +52,4 @@ jobs:
             '        targetCompatibility = JavaVersion.VERSION_17' \
             '    }' \
             '    kotlinOptions {' \
-            '        jvmTarget = "17"' \
-            '    }' \
-            '}' >> "$PROJECT_DIR/app/build.gradle.kts"
-
-      - name: Compilar APK
-        run: |
-          PROJECT_DIR=$(dirname "$(find buildsrc -name settings.gradle.kts -print -quit)")
-          echo "Compilando desde: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
-          gradle assembleDebug --no-daemon
-
-      - name: Guardar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: YapeVoz-APK-2.7.2
-          path: buildsrc/**/app/build/outputs/apk/debug/app-debug.apk
+            '        jvmTarget = "17"'
