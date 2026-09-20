@@ -21,8 +21,7 @@ jobs:
         run: |
           mkdir -p buildsrc
           unzip -q YapeVoz-Pro-2.7.2-corregido.zip -d buildsrc
-
-          echo "=== Proyecto encontrado ==="
+          echo "Proyecto descomprimido"
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -43,23 +42,60 @@ jobs:
 
       - name: Configurar Java y Kotlin 17
         run: |
-          PROJECT_DIR=$(dirname "$(find buildsrc -name settings.gradle.kts -print -quit)")
-          echo "Proyecto encontrado en: $PROJECT_DIR"
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          printf '%s\n' \
-            '' \
-            'android {' \
-            '    compileOptions {' \
-            '        sourceCompatibility = JavaVersion.VERSION_17' \
-            '        targetCompatibility = JavaVersion.VERSION_17' \
-            '    }' \
-            '    kotlinOptions {' \
-            '        jvmTarget = "17"' \
-            '    }' \
-            '}' >> "$PROJECT_DIR/app/build.gradle.kts"
+          echo "Proyecto encontrado en:"
+          echo "$PROJECT_DIR"
+
+          cat >> "$PROJECT_DIR/app/build.gradle.kts" <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
 
       - name: Compilar APK
         run: |
-          PROJECT_DIR=$(dirname "$(find buildsrc -name settings.gradle.kts -print -quit)")
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "=== Comp
+          echo "Compilando desde:"
+          echo "$PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --no-daemon
+
+      - name: Buscar APK generado
+        run: |
+          echo "Buscando APK generado..."
+
+          APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK."
+            find buildsrc -type f -name "*.apk" -print
+            exit 1
+          fi
+
+          echo "APK encontrado:"
+          echo "$APK"
+
+          mkdir -p final-apk
+          cp "$APK" final-apk/YapeVoz-Pro-2.7.2.apk
+
+          ls -lh final-apk/
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YapeVoz-APK-2.7.2
+          path: final-apk/YapeVoz-Pro-2.7.2.apk
+          if-no-files-found: error
