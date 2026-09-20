@@ -21,6 +21,8 @@ jobs:
         run: |
           mkdir -p buildsrc
           unzip -q YapeVoz-Pro-2.7.2-corregido.zip -d buildsrc
+
+          echo "=== Proyecto encontrado ==="
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -52,4 +54,12 @@ jobs:
             '        targetCompatibility = JavaVersion.VERSION_17' \
             '    }' \
             '    kotlinOptions {' \
-            '        jvmTarget = "17"'
+            '        jvmTarget = "17"' \
+            '    }' \
+            '}' >> "$PROJECT_DIR/app/build.gradle.kts"
+
+      - name: Compilar APK
+        run: |
+          PROJECT_DIR=$(dirname "$(find buildsrc -name settings.gradle.kts -print -quit)")
+
+          echo "=== Comp
