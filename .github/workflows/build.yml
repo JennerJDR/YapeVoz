@@ -1,4 +1,4 @@
-name: Construir APK Yape Voz Pro 2.7.2
+name: Construir Yape Voz Pro 2.7.3
 
 on:
   workflow_dispatch:
@@ -14,15 +14,46 @@ jobs:
 
       - name: Verificar ZIP
         run: |
+          echo "Archivos del repositorio:"
           ls -lah
-          test -f YapeVoz-Pro-2.7.2-corregido.zip
+
+          if [ ! -f "YapeVoz-Pro-2.7.3-definitivo.zip" ]; then
+            echo "ERROR: No se encontró YapeVoz-Pro-2.7.3-definitivo.zip"
+            exit 1
+          fi
+
+          echo "ZIP encontrado correctamente."
 
       - name: Descomprimir proyecto
         run: |
+          rm -rf buildsrc
           mkdir -p buildsrc
-          unzip -q YapeVoz-Pro-2.7.2-corregido.zip -d buildsrc
-          echo "Proyecto descomprimido"
-          find buildsrc -name settings.gradle.kts -print
+
+          unzip -q "YapeVoz-Pro-2.7.3-definitivo.zip" -d buildsrc
+
+          echo "Contenido descomprimido:"
+          find buildsrc -maxdepth 4 -type f | head -200
+
+      - name: Encontrar proyecto Android
+        run: |
+          SETTINGS_FILE=$(find buildsrc -name "settings.gradle.kts" -type f -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
+            echo "Contenido:"
+            find buildsrc -maxdepth 5 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          echo "settings.gradle.kts encontrado:"
+          echo "$SETTINGS_FILE"
+
+          echo "Proyecto Android:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -40,12 +71,9 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Configurar Java y Kotlin 17
+      - name: Preparar Java y Kotlin 17
         run: |
-          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Proyecto encontrado en:"
+          echo "Preparando proyecto en:"
           echo "$PROJECT_DIR"
 
           cat >> "$PROJECT_DIR/app/build.gradle.kts" <<'EOF'
@@ -64,38 +92,44 @@ jobs:
 
       - name: Compilar APK
         run: |
-          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Compilando desde:"
-          echo "$PROJECT_DIR"
-
           cd "$PROJECT_DIR"
+
+          echo "Compilando Yape Voz Pro 2.7.3..."
+
           gradle assembleDebug --no-daemon
 
       - name: Buscar APK generado
         run: |
-          echo "Buscando APK generado..."
+          echo "Buscando APK..."
 
           APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
+            echo "ERROR: No se encontró app-debug.apk"
+
+            echo "APKs encontrados:"
             find buildsrc -type f -name "*.apk" -print
+
+            echo "Archivos de compilación:"
+            find buildsrc/app/build -maxdepth 5 -type f 2>/dev/null | head -200
+
             exit 1
           fi
 
           echo "APK encontrado:"
           echo "$APK"
 
+          rm -rf final-apk
           mkdir -p final-apk
-          cp "$APK" final-apk/YapeVoz-Pro-2.7.2.apk
 
+          cp "$APK" "final-apk/YapeVoz-Pro-2.7.3.apk"
+
+          echo "APK final:"
           ls -lh final-apk/
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.7.2
-          path: final-apk/YapeVoz-Pro-2.7.2.apk
+          name: YapeVoz-APK-2.7.3
+          path: final-apk/YapeVoz-Pro-2.7.3.apk
           if-no-files-found: error
