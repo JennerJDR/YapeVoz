@@ -1,4 +1,4 @@
-name: Construir Yape Voz Pro 2.7.6
+name: Construir Yape Voz Pro 2.7.7
 
 on:
   workflow_dispatch:
@@ -17,8 +17,8 @@ jobs:
           echo "Archivos del repositorio:"
           ls -lah
 
-          if [ ! -f "YapeVoz-Pro-2.7.6-definitivo.zip" ]; then
-            echo "ERROR: No se encontró YapeVoz-Pro-2.7.6-definitivo.zip"
+          if [ ! -f "YapeVoz-Pro-2.7.7-definitivo.zip" ]; then
+            echo "ERROR: No se encontró YapeVoz-Pro-2.7.7-definitivo.zip"
             exit 1
           fi
 
@@ -29,7 +29,7 @@ jobs:
           rm -rf buildsrc
           mkdir -p buildsrc
 
-          unzip -q "YapeVoz-Pro-2.7.6-definitivo.zip" -d buildsrc
+          unzip -q "YapeVoz-Pro-2.7.7-definitivo.zip" -d buildsrc
 
           echo "Contenido descomprimido:"
           find buildsrc -maxdepth 4 -type f | head -200
@@ -94,7 +94,7 @@ jobs:
         run: |
           cd "$PROJECT_DIR"
 
-          echo "Compilando Yape Voz Pro 2.7.6..."
+          echo "Compilando Yape Voz Pro 2.7.7..."
 
           gradle assembleDebug --no-daemon
 
@@ -119,7 +119,7 @@ jobs:
           rm -rf final-apk
           mkdir -p final-apk
 
-          cp "$APK" "final-apk/YapeVoz-Pro-2.7.6.apk"
+          cp "$APK" "final-apk/YapeVoz-Pro-2.7.7.apk"
 
           echo "APK final:"
           ls -lh final-apk/
@@ -127,6 +127,6 @@ jobs:
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.7.6
-          path: final-apk/YapeVoz-Pro-2.7.6.apk
+          name: YapeVoz-APK-2.7.7
+          path: final-apk/YapeVoz-Pro-2.7.7.apk
           if-no-files-found: error
