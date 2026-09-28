@@ -44,4 +44,56 @@ jobs:
         run: |
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          echo "Proyecto encontrado en: $PROJECT_DIR"
+
+          sed -i '/sourceCompatibility = JavaVersion.VERSION_17/d' "$PROJECT_DIR/app/build.gradle.kts"
+          sed -i '/targetCompatibility = JavaVersion.VERSION_17/d' "$PROJECT_DIR/app/build.gradle.kts"
+          sed -i '/jvmTarget = "17"/d' "$PROJECT_DIR/app/build.gradle.kts"
+
+      - name: Compilar APK
+        shell: bash
+        run: |
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          echo "Compilando desde: $PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --no-daemon
+
+      - name: Buscar APK generado
+        shell: bash
+        run: |
+          echo "Buscando APK generado..."
+
+          APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK."
+            find buildsrc -type f -name "*.apk" -print
+            exit 1
+          fi
+
+          echo "APK encontrado:"
+          echo "$APK"
+
+          mkdir -p final-apk
+          cp "$APK" final-apk/YapeVoz-Pro-2.8.1.apk
+
+          ls -lh final-apk/
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YapeVoz-APK-2.8.1
+          path: final-apk/YapeVoz-Pro-2.8.1.apk
+          if-no-files-found: error
