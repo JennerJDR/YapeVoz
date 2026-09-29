@@ -1,4 +1,4 @@
-name: Construir Yape Voz Pro 2.8.1
+name: Construir Yape Voz Pro 2.8.2
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Pro-2.8.1.zip
+          test -f YapeVoz-Pro-2.8.2.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Pro-2.8.1.zip -d buildsrc
+          unzip -q YapeVoz-Pro-2.8.2.zip -d buildsrc
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -101,13 +101,13 @@ jobs:
           echo "$APK"
 
           mkdir -p final-apk
-          cp "$APK" final-apk/YapeVoz-Pro-2.8.1.apk
+          cp "$APK" final-apk/YapeVoz-Pro-2.8.2.apk
 
           ls -lh final-apk/
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.8.1
-          path: final-apk/YapeVoz-Pro-2.8.1.apk
+          name: YapeVoz-APK-2.8.2
+          path: final-apk/YapeVoz-Pro-2.8.2.apk
           if-no-files-found: error
