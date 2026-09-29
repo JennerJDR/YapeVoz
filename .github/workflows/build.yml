@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Pro-2.8.2.zip
+          test -f YapeVoz-Pro-2.8.2-corregido.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Pro-2.8.2.zip -d buildsrc
+          unzip -q YapeVoz-Pro-2.8.2-corregido.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find buildsrc -name settings.gradle.kts -print
@@ -69,6 +69,7 @@ jobs:
 
           if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
               marker = "compileSdk = 35"
+
               addition = """
 
               compileOptions {
