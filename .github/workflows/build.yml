@@ -15,12 +15,13 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f YapeVoz-Pro-2.8.2-corregido.zip
+          test -f YapeVoz-Pro-2.8.2-corregido-2.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q YapeVoz-Pro-2.8.2-corregido.zip -d buildsrc
+
+          unzip -q YapeVoz-Pro-2.8.2-corregido-2.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find buildsrc -name settings.gradle.kts -print
@@ -83,7 +84,9 @@ jobs:
               """
 
               if marker not in text:
-                  raise SystemExit("ERROR: No se encontró compileSdk = 35")
+                  raise SystemExit(
+                      "ERROR: No se encontró compileSdk = 35"
+                  )
 
               text = text.replace(
                   marker,
