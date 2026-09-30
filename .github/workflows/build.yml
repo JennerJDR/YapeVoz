@@ -1,4 +1,4 @@
-name: Construir Pago Voz Pro 1.1.1
+name: Construir Pago Voz Pro 1.1.2
 
 on:
   workflow_dispatch:
@@ -15,12 +15,13 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVozPro-1.1.1.zip
+          test -f PagoVozPro-1.1.2.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVozPro-1.1.1.zip -d buildsrc
+
+          unzip -q PagoVozPro-1.1.2.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print
@@ -53,14 +54,13 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Proyecto encontrado en:"
+          echo "Proyecto encontrado:"
           echo "$PROJECT_DIR"
 
           echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
           echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
           echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
 
-          echo "gradle.properties:"
           cat "$PROJECT_DIR/gradle.properties"
 
       - name: Compilar APK
@@ -92,18 +92,18 @@ jobs:
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE)
 
           APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 
-          echo "Buscando APK en:"
+          echo "Buscando APK:"
           echo "$APK"
 
           if [ ! -f "$APK" ]; then
             echo "ERROR: No se encontró el APK."
 
-            echo "APK encontrados dentro del proyecto:"
-            find "$PROJECT_DIR" -type f -name "*.apk" -print
+            echo "APK encontrados:"
+            find "$GITHUB_WORKSPACE/buildsrc" -type f -name "*.apk" -print
 
             exit 1
           fi
@@ -113,14 +113,14 @@ jobs:
 
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
 
-          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVozPro-1.1.1.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVozPro-1.1.2.apk"
 
-          echo "APK final preparado:"
+          echo "APK final:"
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVozPro-APK-1.1.1
-          path: final-apk/PagoVozPro-1.1.1.apk
+          name: PagoVozPro-APK-1.1.2
+          path: final-apk/PagoVozPro-1.1.2.apk
           if-no-files-found: error
