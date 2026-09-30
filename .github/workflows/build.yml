@@ -9,31 +9,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Descargar proyecto
         uses: actions/checkout@v4
 
       - name: Verificar ZIP
         run: |
-          echo "Archivos del repositorio:"
           ls -lah
-
-          if [ ! -f "PagoVozPro-1.1.1.zip" ]; then
-            echo "ERROR: No se encontró PagoVozPro-1.1.1.zip"
-            exit 1
-          fi
-
-          echo "ZIP encontrado correctamente."
+          test -f PagoVozPro-1.1.1.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-
           unzip -q PagoVozPro-1.1.1.zip -d buildsrc
-
-          echo "Contenido del proyecto:"
-          find buildsrc -maxdepth 4 -type f | head -100
-
-          echo "Buscando settings.gradle.kts:"
+          echo "Proyecto encontrado:"
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -58,7 +47,7 @@ jobs:
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
+            echo "ERROR: No se encontro settings.gradle.kts"
             exit 1
           fi
 
@@ -68,25 +57,17 @@ jobs:
           echo "Proyecto: $PROJECT_DIR"
           echo "Gradle: $BUILD_FILE"
 
-          if [ ! -f "$BUILD_FILE" ]; then
-            echo "ERROR: No se encontró app/build.gradle.kts"
-            exit 1
-          fi
+          test -f "$BUILD_FILE"
 
-          echo "Creando gradle.properties..."
+          cat > "$PROJECT_DIR/gradle.properties" <<EOF
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
 
-          printf '%s\n' \
-            'android.useAndroidX=true' \
-            'android.enableJetifier=true' \
-            'org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8' \
-            > "$PROJECT_DIR/gradle.properties"
+          echo "gradle.properties creado."
 
-          echo "gradle.properties creado correctamente."
-
-          echo "Configurando Java/Kotlin 17..."
-
-          if ! grep -q 'sourceCompatibility = JavaVersion.VERSION_17' "$BUILD_FILE"; then
-
+          if ! grep -q "sourceCompatibility = JavaVersion.VERSION_17" "$BUILD_FILE"; then
             sed -i '/compileSdk = 35/a\
 \
     compileOptions {\
@@ -97,11 +78,9 @@ jobs:
     kotlinOptions {\
         jvmTarget = "17"\
     }' "$BUILD_FILE"
-
           fi
 
-          echo "Configuración final de Gradle:"
-          cat "$BUILD_FILE"
+          echo "Configuracion Java/Kotlin terminada."
 
       - name: Compilar APK
         shell: bash
@@ -109,30 +88,26 @@ jobs:
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
+            echo "ERROR: No se encontro settings.gradle.kts"
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Compilando desde:"
-          echo "$PROJECT_DIR"
+          echo "Compilando desde: $PROJECT_DIR"
 
           cd "$PROJECT_DIR"
 
           gradle assembleDebug --no-daemon
 
-      - name: Buscar APK generado
+      - name: Buscar APK
         shell: bash
         run: |
-          echo "Buscando APK generado..."
-
           APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
+            echo "ERROR: No se encontro el APK."
 
-            echo "APK encontrados:"
             find buildsrc -type f -name "*.apk" -print
 
             exit 1
@@ -145,7 +120,6 @@ jobs:
 
           cp "$APK" final-apk/PagoVozPro-1.1.1.apk
 
-          echo "APK final:"
           ls -lh final-apk/
 
       - name: Guardar APK
