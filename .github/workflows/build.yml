@@ -18,23 +18,55 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
+
+      - name: Instalar componentes Android
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
       - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
+      - name: Encontrar proyecto Android
+        id: find_project
+        run: |
+          PROJECT_DIR=$(find . -name "settings.gradle.kts" -type f -print -quit | xargs dirname)
+
+          if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "." ]; then
+            echo "Proyecto Android encontrado en la raíz"
+            echo "project_dir=." >> "$GITHUB_OUTPUT"
+          else
+            echo "Proyecto Android encontrado en: $PROJECT_DIR"
+            echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verificar estructura del proyecto
+        run: |
+          echo "Contenido del repositorio:"
+          find . -maxdepth 3 -type f | sort
+
       - name: Compilar APK
-        run: gradle assembleDebug --no-daemon
+        working-directory: ${{ steps.find_project.outputs.project_dir }}
+        run: |
+          gradle assembleDebug --no-daemon
 
       - name: Preparar APK
         run: |
+          PROJECT_DIR="${{ steps.find_project.outputs.project_dir }}"
+
           mkdir -p final-apk
-          cp app/build/outputs/apk/debug/app-debug.apk final-apk/PagoVozPro.apk
+
+          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" \
+             "final-apk/PagoVozPro.apk"
+
+          echo "APK preparado correctamente:"
+          ls -lh final-apk/PagoVozPro.apk
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
