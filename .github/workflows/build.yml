@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.1.5
+name: Construir Pago Voz 1.1.6
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVozPro-1.1.5.zip
+          test -f PagoVoz-1.1.6.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVozPro-1.1.5.zip -d buildsrc
+          unzip -q PagoVoz-1.1.6.zip -d buildsrc
           echo "Buscando proyecto..."
           find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print
 
@@ -91,7 +91,6 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
           APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 
           echo "Buscando APK:"
@@ -108,8 +107,7 @@ jobs:
           ls -lh "$APK"
 
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
-
-          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.1.5.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.1.6.apk"
 
           echo "APK final:"
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
@@ -117,6 +115,6 @@ jobs:
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.1.5
-          path: final-apk/PagoVoz-1.1.5.apk
+          name: PagoVoz-APK-1.1.6
+          path: final-apk/PagoVoz-1.1.6.apk
           if-no-files-found: error
