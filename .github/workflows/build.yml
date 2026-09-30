@@ -1,4 +1,4 @@
-name: Construir Pago Voz Pro 1.1.0
+name: Construir Pago Voz Pro 1.1.1
 
 on:
   workflow_dispatch:
@@ -15,13 +15,13 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVozPro-1.1.0.zip
+          test -f PagoVozPro-1.1.1.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
 
-          unzip -q PagoVozPro-1.1.0.zip -d buildsrc
+          unzip -q PagoVozPro-1.1.1.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find buildsrc -name settings.gradle.kts -print
@@ -95,62 +95,4 @@ jobs:
               text = text.replace(
                   marker,
                   marker + addition,
-                  1
-              )
-
-          with open(path, "w", encoding="utf-8") as f:
-              f.write(text)
-
-          print("Configuración Java/Kotlin 17 aplicada correctamente.")
-          PY
-
-          echo "Contenido final de app/build.gradle.kts:"
-          cat "$BUILD_FILE"
-
-      - name: Compilar APK
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Compilando desde: $PROJECT_DIR"
-
-          cd "$PROJECT_DIR"
-
-          gradle assembleDebug --no-daemon
-
-      - name: Buscar APK generado
-        shell: bash
-        run: |
-          echo "Buscando APK generado..."
-
-          APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
-            echo "Archivos APK encontrados:"
-            find buildsrc -type f -name "*.apk" -print
-            exit 1
-          fi
-
-          echo "APK encontrado:"
-          echo "$APK"
-
-          mkdir -p final-apk
-
-          cp "$APK" final-apk/PagoVozPro-1.1.0.apk
-
-          ls -lh final-apk/
-
-      - name: Guardar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PagoVozPro-APK-1.1.0
-          path: final-apk/PagoVozPro-1.1.0.apk
-          if-no-files-found: error
+                 
