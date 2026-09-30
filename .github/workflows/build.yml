@@ -42,7 +42,7 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Configurar Java y Kotlin 17
+      - name: Configurar AndroidX y Java/Kotlin 17
         shell: bash
         run: |
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
@@ -59,6 +59,17 @@ jobs:
           echo "Gradle: $BUILD_FILE"
 
           test -f "$BUILD_FILE"
+
+          echo "Configurando gradle.properties..."
+
+          cat > "$PROJECT_DIR/gradle.properties" <<'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
+
+          echo "gradle.properties creado:"
+          cat "$PROJECT_DIR/gradle.properties"
 
           python3 - "$BUILD_FILE" <<'PY'
           import sys
