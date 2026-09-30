@@ -9,20 +9,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Descargar proyecto
         uses: actions/checkout@v4
 
       - name: Verificar ZIP
-        run: |
-          ls -lah
-          test -f PagoVozPro-1.1.1.zip
+        run: test -f PagoVozPro-1.1.1.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
           unzip -q PagoVozPro-1.1.1.zip -d buildsrc
-          echo "Proyecto encontrado:"
           find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -41,86 +37,36 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Preparar proyecto
-        shell: bash
+      - name: Configurar AndroidX
         run: |
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontro settings.gradle.kts"
-            exit 1
-          fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-          BUILD_FILE="$PROJECT_DIR/app/build.gradle.kts"
-
           echo "Proyecto: $PROJECT_DIR"
-          echo "Gradle: $BUILD_FILE"
-
-          test -f "$BUILD_FILE"
-
-          cat > "$PROJECT_DIR/gradle.properties" <<EOF
-          android.useAndroidX=true
-          android.enableJetifier=true
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          EOF
-
-          echo "gradle.properties creado."
-
-          if ! grep -q "sourceCompatibility = JavaVersion.VERSION_17" "$BUILD_FILE"; then
-            sed -i '/compileSdk = 35/a\
-\
-    compileOptions {\
-        sourceCompatibility = JavaVersion.VERSION_17\
-        targetCompatibility = JavaVersion.VERSION_17\
-    }\
-\
-    kotlinOptions {\
-        jvmTarget = "17"\
-    }' "$BUILD_FILE"
-          fi
-
-          echo "Configuracion Java/Kotlin terminada."
+          echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
+          echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
 
       - name: Compilar APK
-        shell: bash
         run: |
           SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontro settings.gradle.kts"
-            exit 1
-          fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
           echo "Compilando desde: $PROJECT_DIR"
-
           cd "$PROJECT_DIR"
-
           gradle assembleDebug --no-daemon
 
       - name: Buscar APK
-        shell: bash
         run: |
           APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: No se encontro el APK."
-
+            echo "ERROR: No se encontró el APK"
             find buildsrc -type f -name "*.apk" -print
-
             exit 1
           fi
 
-          echo "APK encontrado:"
-          echo "$APK"
-
+          echo "APK encontrado: $APK"
           mkdir -p final-apk
-
           cp "$APK" final-apk/PagoVozPro-1.1.1.apk
-
-          ls -lh final-apk/
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
