@@ -1,4 +1,4 @@
-name: Construir Yape Voz Pro 2.8.3
+name: Construir Pago Voz Pro
 
 on:
   workflow_dispatch:
@@ -12,20 +12,6 @@ jobs:
       - name: Descargar proyecto
         uses: actions/checkout@v4
 
-      - name: Verificar ZIP
-        run: |
-          ls -lah
-          test -f YapeVoz-Pro-2.8.3.zip
-
-      - name: Descomprimir proyecto
-        run: |
-          mkdir -p buildsrc
-
-          unzip -q YapeVoz-Pro-2.8.3.zip -d buildsrc
-
-          echo "Buscando proyecto..."
-          find buildsrc -name settings.gradle.kts -print
-
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -37,114 +23,21 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
-      - name: Configurar Java y Kotlin 17
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-          BUILD_FILE="$PROJECT_DIR/app/build.gradle.kts"
-
-          echo "Proyecto: $PROJECT_DIR"
-          echo "Gradle: $BUILD_FILE"
-
-          test -f "$BUILD_FILE"
-
-          python3 - "$BUILD_FILE" <<'PY'
-          import sys
-
-          path = sys.argv[1]
-
-          with open(path, "r", encoding="utf-8") as f:
-              text = f.read()
-
-          if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
-              marker = "compileSdk = 35"
-
-              addition = """
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-              """
-
-              if marker not in text:
-                  raise SystemExit("ERROR: No se encontró compileSdk = 35")
-
-              text = text.replace(
-                  marker,
-                  marker + addition,
-                  1
-              )
-
-          with open(path, "w", encoding="utf-8") as f:
-              f.write(text)
-
-          print("Configuración Java/Kotlin 17 aplicada correctamente.")
-          PY
-
-          echo "Contenido final de app/build.gradle.kts:"
-          cat "$BUILD_FILE"
-
       - name: Compilar APK
-        shell: bash
+        run: gradle assembleDebug --no-daemon
+
+      - name: Preparar APK
         run: |
-          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Compilando desde: $PROJECT_DIR"
-
-          cd "$PROJECT_DIR"
-
-          gradle assembleDebug --no-daemon
-
-      - name: Buscar APK generado
-        shell: bash
-        run: |
-          echo "Buscando APK generado..."
-
-          APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
-            echo "Archivos APK encontrados:"
-            find buildsrc -type f -name "*.apk" -print
-            exit 1
-          fi
-
-          echo "APK encontrado:"
-          echo "$APK"
-
           mkdir -p final-apk
-
-          cp "$APK" final-apk/YapeVoz-Pro-2.8.3.apk
-
-          ls -lh final-apk/
+          cp app/build/outputs/apk/debug/app-debug.apk final-apk/PagoVozPro.apk
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: YapeVoz-APK-2.8.3
-          path: final-apk/YapeVoz-Pro-2.8.3.apk
-          if-no-files-found: error
+          name: PagoVozPro-APK
+          path: final-apk/PagoVozPro.apk
