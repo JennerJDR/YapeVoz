@@ -1,106 +1,150 @@
-name: Construir Pago Voz PRO
+name: Construir Pago Voz Pro 1.0.1
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar repositorio
+      - name: Descargar proyecto
         uses: actions/checkout@v4
 
-      - name: Buscar archivo ZIP
-        id: find_zip
-        shell: bash
+      - name: Verificar ZIP
         run: |
-          ZIP_FILE=$(find . -maxdepth 2 -type f -name "*.zip" | head -n 1)
+          ls -lah
+          test -f PagoVozPro-1.0.1.zip
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró ningún archivo ZIP."
-            exit 1
-          fi
-
-          echo "ZIP encontrado: $ZIP_FILE"
-          echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
-
-      - name: Extraer proyecto desde ZIP
-        shell: bash
+      - name: Descomprimir proyecto
         run: |
-          rm -rf project
-          mkdir -p project
+          mkdir -p buildsrc
 
-          unzip -q "${{ steps.find_zip.outputs.zip_file }}" -d project
+          unzip -q PagoVozPro-1.0.1.zip -d buildsrc
 
-          echo "Contenido del proyecto:"
-          find project -maxdepth 3 -type f | sort
-
-      - name: Verificar proyecto Gradle
-        shell: bash
-        run: |
-          if [ ! -f "project/settings.gradle.kts" ]; then
-            echo "ERROR: No se encontró project/settings.gradle.kts"
-            echo "Contenido de project:"
-            find project -maxdepth 3 -type f | sort
-            exit 1
-          fi
-
-          if [ ! -f "project/app/build.gradle.kts" ]; then
-            echo "ERROR: No se encontró project/app/build.gradle.kts"
-            exit 1
-          fi
-
-          echo "Proyecto Gradle encontrado correctamente."
+          echo "Buscando proyecto..."
+          find buildsrc -name settings.gradle.kts -print
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configurar Android
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
 
-      - name: Instalar SDK Android 35
-        shell: bash
-        run: |
-          sdkmanager "platform-tools" \
-                     "platforms;android-35" \
-                     "build-tools;35.0.0"
-
-      - name: Configurar Gradle 8.10
+      - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.10"
+          gradle-version: '8.10'
 
-      - name: Compilar APK
-        working-directory: project
+      - name: Configurar Java y Kotlin 17
         shell: bash
         run: |
-          gradle assembleDebug --no-daemon
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
 
-      - name: Preparar APK final
-        shell: bash
-        run: |
-          mkdir -p final-apk
-
-          APK=$(find project/app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
             exit 1
           fi
 
-          echo "APK encontrado: $APK"
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          BUILD_FILE="$PROJECT_DIR/app/build.gradle.kts"
 
-          cp "$APK" final-apk/PagoVozPro.apk
+          echo "Proyecto: $PROJECT_DIR"
+          echo "Gradle: $BUILD_FILE"
 
-          ls -lh final-apk/PagoVozPro.apk
+          test -f "$BUILD_FILE"
 
-      - name: Subir APK
+          python3 - "$BUILD_FILE" <<'PY'
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              text = f.read()
+
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
+              marker = "compileSdk = 35"
+
+              addition = """
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              """
+
+              if marker not in text:
+                  raise SystemExit("ERROR: No se encontró compileSdk = 35")
+
+              text = text.replace(
+                  marker,
+                  marker + addition,
+                  1
+              )
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(text)
+
+          print("Configuración Java/Kotlin 17 aplicada correctamente.")
+          PY
+
+          echo "Contenido final de app/build.gradle.kts:"
+          cat "$BUILD_FILE"
+
+      - name: Compilar APK
+        shell: bash
+        run: |
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          echo "Compilando desde: $PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+
+          gradle assembleDebug --no-daemon
+
+      - name: Buscar APK generado
+        shell: bash
+        run: |
+          echo "Buscando APK generado..."
+
+          APK=$(find buildsrc -type f -name "app-debug.apk" -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK."
+            echo "Archivos APK encontrados:"
+            find buildsrc -type f -name "*.apk" -print
+            exit 1
+          fi
+
+          echo "APK encontrado:"
+          echo "$APK"
+
+          mkdir -p final-apk
+
+          cp "$APK" final-apk/PagoVozPro-1.0.1.apk
+
+          ls -lh final-apk/
+
+      - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVozPro-APK
-          path: final-apk/PagoVozPro.apk
+          name: PagoVozPro-APK-1.0.1
+          path: final-apk/PagoVozPro-1.0.1.apk
           if-no-files-found: error
