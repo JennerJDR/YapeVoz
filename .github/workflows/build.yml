@@ -1,113 +1,106 @@
-name: Construir Pago Voz Pro
+name: Construir Pago Voz PRO
 
 on:
   workflow_dispatch:
-  push:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar proyecto
+      - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Mostrar estructura del repositorio
+      - name: Buscar archivo ZIP
+        id: find_zip
+        shell: bash
         run: |
-          echo "================================"
-          echo "ARCHIVOS DEL REPOSITORIO"
-          echo "================================"
-          find . -maxdepth 5 -type f | sort
+          ZIP_FILE=$(find . -maxdepth 2 -type f -name "*.zip" | head -n 1)
 
-      - name: Buscar proyecto Gradle
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No se encontró ningún archivo ZIP."
+            exit 1
+          fi
+
+          echo "ZIP encontrado: $ZIP_FILE"
+          echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Extraer proyecto desde ZIP
+        shell: bash
         run: |
-          echo "================================"
-          echo "BUSCANDO ARCHIVOS GRADLE"
-          echo "================================"
+          rm -rf project
+          mkdir -p project
 
-          find . -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \
-          \) -print
+          unzip -q "${{ steps.find_zip.outputs.zip_file }}" -d project
+
+          echo "Contenido del proyecto:"
+          find project -maxdepth 3 -type f | sort
+
+      - name: Verificar proyecto Gradle
+        shell: bash
+        run: |
+          if [ ! -f "project/settings.gradle.kts" ]; then
+            echo "ERROR: No se encontró project/settings.gradle.kts"
+            echo "Contenido de project:"
+            find project -maxdepth 3 -type f | sort
+            exit 1
+          fi
+
+          if [ ! -f "project/app/build.gradle.kts" ]; then
+            echo "ERROR: No se encontró project/app/build.gradle.kts"
+            exit 1
+          fi
+
+          echo "Proyecto Gradle encontrado correctamente."
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
 
-      - name: Instalar Android SDK
+      - name: Instalar SDK Android 35
+        shell: bash
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+          sdkmanager "platform-tools" \
+                     "platforms;android-35" \
+                     "build-tools;35.0.0"
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10'
+          gradle-version: "8.10"
 
-      - name: Detener si no existe proyecto Gradle
+      - name: Compilar APK
+        working-directory: project
+        shell: bash
         run: |
-          if ! find . -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-          \) | grep -q .; then
+          gradle assembleDebug --no-daemon
 
-            echo ""
-            echo "========================================="
-            echo "ERROR: NO SE ENCONTRO EL PROYECTO GRADLE"
-            echo "========================================="
-            echo ""
-            echo "GitHub no encuentra settings.gradle"
-            echo "ni settings.gradle.kts en el repositorio."
-            echo ""
+      - name: Preparar APK final
+        shell: bash
+        run: |
+          mkdir -p final-apk
+
+          APK=$(find project/app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK."
             exit 1
           fi
 
-      - name: Compilar aplicación
-        run: |
-          SETTINGS=$(find . -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-          \) -print -quit)
+          echo "APK encontrado: $APK"
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
-
-          echo "Proyecto encontrado en:"
-          echo "$PROJECT_DIR"
-
-          cd "$PROJECT_DIR"
-
-          echo "Contenido:"
-          ls -la
-
-          gradle assembleDebug --no-daemon
-
-      - name: Preparar APK
-        run: |
-          SETTINGS=$(find . -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-          \) -print -quit)
-
-          PROJECT_DIR=$(dirname "$SETTINGS")
-
-          mkdir -p final-apk
-
-          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" \
-             final-apk/PagoVozPro.apk
+          cp "$APK" final-apk/PagoVozPro.apk
 
           ls -lh final-apk/PagoVozPro.apk
 
-      - name: Guardar APK
+      - name: Subir APK
         uses: actions/upload-artifact@v4
         with:
           name: PagoVozPro-APK
           path: final-apk/PagoVozPro.apk
+          if-no-files-found: error
