@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.1.8
+name: Construir Pago Voz 1.1.9
 
 on:
   workflow_dispatch:
@@ -15,13 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVoz-1.1.8.zip
+          test -f PagoVoz-1.1.9.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVoz-1.1.8.zip -d buildsrc
-          echo "Buscando proyecto..."
+          unzip -q PagoVoz-1.1.9.zip -d buildsrc
           find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print
 
       - name: Configurar Java 17
@@ -52,14 +51,9 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Proyecto encontrado:"
-          echo "$PROJECT_DIR"
-
           echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
           echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
           echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
-
-          cat "$PROJECT_DIR/gradle.properties"
 
       - name: Compilar APK
         shell: bash
@@ -72,10 +66,6 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Compilando desde:"
-          echo "$PROJECT_DIR"
-
           cd "$PROJECT_DIR"
 
           gradle assembleDebug --no-daemon
@@ -84,37 +74,21 @@ jobs:
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 
-          echo "Buscando APK:"
-          echo "$APK"
-
           if [ ! -f "$APK" ]; then
             echo "ERROR: No se encontró el APK."
-            echo "APK encontrados:"
             find "$GITHUB_WORKSPACE/buildsrc" -type f -name "*.apk" -print
             exit 1
           fi
 
-          echo "APK encontrado correctamente:"
-          ls -lh "$APK"
-
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
-          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.1.8.apk"
-
-          echo "APK final:"
-          ls -lh "$GITHUB_WORKSPACE/final-apk/"
+          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.1.9.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.1.8
-          path: final-apk/PagoVoz-1.1.8.apk
+          name: PagoVoz-APK-1.1.9
+          path: final-apk/PagoVoz-1.1.9.apk
           if-no-files-found: error
