@@ -1,4 +1,4 @@
-name: Construir Pago Voz Pro 1.0.2
+name: Construir Pago Voz Pro 1.1.0
 
 on:
   workflow_dispatch:
@@ -15,12 +15,13 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVozPro-1.0.2.zip
+          test -f PagoVozPro-1.1.0.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVozPro-1.0.2.zip -d buildsrc
+
+          unzip -q PagoVozPro-1.1.0.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find buildsrc -name settings.gradle.kts -print
@@ -143,13 +144,13 @@ jobs:
 
           mkdir -p final-apk
 
-          cp "$APK" final-apk/PagoVozPro-1.0.2.apk
+          cp "$APK" final-apk/PagoVozPro-1.1.0.apk
 
           ls -lh final-apk/
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVozPro-APK-1.0.2
-          path: final-apk/PagoVozPro-1.0.2.apk
+          name: PagoVozPro-APK-1.1.0
+          path: final-apk/PagoVozPro-1.1.0.apk
           if-no-files-found: error
