@@ -49,7 +49,7 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Preparar Java y Kotlin 17
+      - name: Configurar AndroidX y Java/Kotlin 17
         shell: bash
         run: |
           SETTINGS_FILE=$(find buildsrc -name "settings.gradle.kts" -print -quit)
@@ -61,17 +61,37 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           BUILD_FILE="$PROJECT_DIR/app/build.gradle.kts"
+          PROPERTIES_FILE="$PROJECT_DIR/gradle.properties"
 
           echo "Proyecto encontrado en:"
           echo "$PROJECT_DIR"
 
-          echo "Archivo Gradle de aplicación:"
+          echo "Gradle:"
           echo "$BUILD_FILE"
 
           if [ ! -f "$BUILD_FILE" ]; then
             echo "ERROR: No se encontró app/build.gradle.kts"
             exit 1
           fi
+
+          echo ""
+          echo "Configurando AndroidX..."
+
+          touch "$PROPERTIES_FILE"
+
+          if ! grep -q "^android.useAndroidX=true$" "$PROPERTIES_FILE"; then
+            echo "android.useAndroidX=true" >> "$PROPERTIES_FILE"
+          fi
+
+          if ! grep -q "^android.enableJetifier=true$" "$PROPERTIES_FILE"; then
+            echo "android.enableJetifier=true" >> "$PROPERTIES_FILE"
+          fi
+
+          echo "gradle.properties final:"
+          cat "$PROPERTIES_FILE"
+
+          echo ""
+          echo "Configurando Java/Kotlin 17..."
 
           python3 - "$BUILD_FILE" <<'PY'
           import sys
@@ -113,6 +133,7 @@ jobs:
           print("Java 17 y Kotlin 17 configurados correctamente.")
           PY
 
+          echo ""
           echo "Contenido final de app/build.gradle.kts:"
           cat "$BUILD_FILE"
 
@@ -168,7 +189,8 @@ jobs:
 
           mkdir -p final-apk
 
-          cp "$APK" "final-apk/YapeVoz-Pro-2.8.4-Firma-Permanente.apk"
+          cp "$APK" \
+            "final-apk/YapeVoz-Pro-2.8.4-Firma-Permanente.apk"
 
           echo "APK final:"
           ls -lh final-apk/
