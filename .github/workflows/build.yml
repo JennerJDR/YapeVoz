@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.2.4
+name: Construir Yape Voz Pro 2.8.4
 
 on:
   workflow_dispatch:
@@ -10,43 +10,125 @@ jobs:
 
     steps:
       - name: Descargar proyecto
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Verificar ZIP
         run: |
+          echo "Archivos disponibles:"
           ls -lah
-          test -f PagoVoz-1.2.4.zip
+
+          if [ ! -f "YapeVoz-Pro-2.8.4-Firma-Permanente.zip" ]; then
+            echo "ERROR: No se encontró YapeVoz-Pro-2.8.4-Firma-Permanente.zip"
+            exit 1
+          fi
+
+          echo "ZIP encontrado correctamente."
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVoz-1.2.4.zip -d buildsrc
 
-          echo "Buscando proyecto..."
-          find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print
+          unzip -q "YapeVoz-Pro-2.8.4-Firma-Permanente.zip" -d buildsrc
+
+          echo "Buscando proyecto Android..."
+          find buildsrc -name "settings.gradle.kts" -print
 
       - name: Configurar Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
-      - name: Configurar AndroidX
+      - name: Preparar Java y Kotlin 17
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          SETTINGS_FILE=$(find buildsrc -name "settings.gradle.kts" -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          BUILD_FILE="$PROJECT_DIR/app/build.gradle.kts"
+
+          echo "Proyecto encontrado en:"
+          echo "$PROJECT_DIR"
+
+          echo "Archivo Gradle de aplicación:"
+          echo "$BUILD_FILE"
+
+          if [ ! -f "$BUILD_FILE" ]; then
+            echo "ERROR: No se encontró app/build.gradle.kts"
+            exit 1
+          fi
+
+          python3 - "$BUILD_FILE" <<'PY'
+          import sys
+
+          path = sys.argv[1]
+
+          with open(path, "r", encoding="utf-8") as f:
+              text = f.read()
+
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
+              marker = "compileSdk = 35"
+
+              addition = """
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              """
+
+              if marker not in text:
+                  raise SystemExit(
+                      "ERROR: No se encontró 'compileSdk = 35' en app/build.gradle.kts"
+                  )
+
+              text = text.replace(
+                  marker,
+                  marker + addition,
+                  1
+              )
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(text)
+
+          print("Java 17 y Kotlin 17 configurados correctamente.")
+          PY
+
+          echo "Contenido final de app/build.gradle.kts:"
+          cat "$BUILD_FILE"
+
+      - name: Verificar archivos de firma
+        shell: bash
+        run: |
+          echo "Buscando archivos relacionados con la firma..."
+
+          find buildsrc \
+            \( -name "*.jks" -o -name "*.keystore" -o -name "keystore.properties" \) \
+            -print
+
+      - name: Compilar APK Release firmado
+        shell: bash
+        run: |
+          SETTINGS_FILE=$(find buildsrc -name "settings.gradle.kts" -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: No se encontró settings.gradle.kts"
@@ -55,80 +137,45 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Proyecto encontrado:"
+          echo "Compilando proyecto desde:"
           echo "$PROJECT_DIR"
-
-          echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
-          echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
-          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
-
-      - name: Verificar firma permanente
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          if [ ! -f "$PROJECT_DIR/signing/pagovoz-release.jks" ]; then
-            echo "ERROR: Falta la clave de firma."
-            exit 1
-          fi
-
-          if [ ! -f "$PROJECT_DIR/signing/signing.properties" ]; then
-            echo "ERROR: Falta signing.properties."
-            exit 1
-          fi
-
-          echo "Firma permanente encontrada."
-
-      - name: Compilar APK firmado
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
           cd "$PROJECT_DIR"
 
           gradle assembleRelease --no-daemon
 
-      - name: Buscar APK generado
+      - name: Buscar APK Release
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          echo "Buscando APK Release generado..."
 
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          APK=$(find buildsrc \
+            -type f \
+            -path "*/build/outputs/apk/release/*.apk" \
+            -print -quit)
 
-          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK Release."
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
-            find "$GITHUB_WORKSPACE/buildsrc" -type f -name "*.apk" -print
+            echo "APK encontrados:"
+            find buildsrc -type f -name "*.apk" -print
+
             exit 1
           fi
 
-          mkdir -p "$GITHUB_WORKSPACE/final-apk"
+          echo "APK encontrado:"
+          echo "$APK"
 
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.4.apk"
+          mkdir -p final-apk
 
-          echo "APK generado:"
-          ls -lh "$GITHUB_WORKSPACE/final-apk/"
+          cp "$APK" "final-apk/YapeVoz-Pro-2.8.4-Firma-Permanente.apk"
 
-      - name: Verificar firma del APK
-        shell: bash
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify \
-            --verbose \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.4.apk"
+          echo "APK final:"
+          ls -lh final-apk/
 
-      - name: Guardar APK
+      - name: Guardar APK firmado
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.2.4
-          path: final-apk/PagoVoz-1.2.4.apk
+          name: YapeVoz-Pro-2.8.4-Firma-Permanente
+          path: final-apk/YapeVoz-Pro-2.8.4-Firma-Permanente.apk
           if-no-files-found: error
