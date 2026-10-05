@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.2.5
+name: Construir Pago Voz 1.2.6
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f PagoVoz-1.2.5.zip
+          test -f PagoVoz-1.2.6.zip
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q PagoVoz-1.2.5.zip -d buildsrc
+          unzip -q PagoVoz-1.2.6.zip -d buildsrc
 
           echo "Buscando proyecto..."
           find "$GITHUB_WORKSPACE/buildsrc" \
@@ -68,22 +68,10 @@ jobs:
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
             -name settings.gradle.kts -print -quit)
 
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          if [ ! -f "$PROJECT_DIR/signing/pagovoz-release.jks" ]; then
-            echo "ERROR: Falta la clave de firma."
-            exit 1
-          fi
-
-          if [ ! -f "$PROJECT_DIR/signing/signing.properties" ]; then
-            echo "ERROR: Falta signing.properties."
-            exit 1
-          fi
+          test -f "$PROJECT_DIR/signing/pagovoz-release.jks"
+          test -f "$PROJECT_DIR/signing/signing.properties"
 
           echo "Firma permanente encontrada."
 
@@ -118,9 +106,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.5.apk"
+            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.6.apk"
 
-          echo "APK generado:"
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
 
       - name: Verificar firma del APK
@@ -129,11 +116,11 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.5.apk"
+            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.6.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.2.5
-          path: final-apk/PagoVoz-1.2.5.apk
+          name: PagoVoz-APK-1.2.6
+          path: final-apk/PagoVoz-1.2.6.apk
           if-no-files-found: error
