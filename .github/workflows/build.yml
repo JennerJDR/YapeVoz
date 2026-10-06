@@ -1,4 +1,4 @@
-name: Construir Háblame 1.0.1
+name: Construir Háblame 1.0.2
 
 on:
   workflow_dispatch:
@@ -12,11 +12,10 @@ permissions:
 
 jobs:
   build:
-    name: Compilar Háblame 1.0.1
+    name: Compilar Háblame 1.0.2
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Descargar repositorio
         uses: actions/checkout@v7
 
@@ -40,13 +39,13 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Buscar ZIP de Háblame 1.0.1
+      - name: Buscar ZIP de Háblame 1.0.2
         shell: bash
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname "Háblame 1.0.1.zip" -print -quit)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname "Háblame 1.0.2.zip" -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró Háblame 1.0.1.zip en la raíz del repositorio."
+            echo "ERROR: No se encontró Háblame 1.0.2.zip en la raíz del repositorio."
             ls -lah
             exit 1
           fi
@@ -59,23 +58,16 @@ jobs:
         run: |
           rm -rf "$GITHUB_WORKSPACE/buildsrc"
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
-
-          unzip -q "$PROJECT_ZIP" \
-            -d "$GITHUB_WORKSPACE/buildsrc"
+          unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
 
       - name: Verificar proyecto
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts \
-            -print -quit)
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
-            find "$GITHUB_WORKSPACE/buildsrc" \
-              -maxdepth 4 \
-              -type f \
-              | sort
+            find "$GITHUB_WORKSPACE/buildsrc" -maxdepth 4 -type f | sort
             exit 1
           fi
 
@@ -88,38 +80,27 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Preparar firma estable
+      - name: Preparar firma estable (si existen secretos)
         shell: bash
         env:
           HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
           HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
           HABLAME_KEY_ALIAS: ${{ secrets.HABLAME_KEY_ALIAS }}
           HABLAME_KEY_PASSWORD: ${{ secrets.HABLAME_KEY_PASSWORD }}
-
         run: |
-
           if [ -n "$HABLAME_KEYSTORE_BASE64" ] && \
              [ -n "$HABLAME_KEYSTORE_PASSWORD" ] && \
              [ -n "$HABLAME_KEY_ALIAS" ] && \
              [ -n "$HABLAME_KEY_PASSWORD" ]; then
 
-            echo "$HABLAME_KEYSTORE_BASE64" \
-              | base64 --decode \
-              > "$RUNNER_TEMP/hablame-signing.jks"
+            echo "$HABLAME_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hablame-signing.jks"
 
             test -s "$RUNNER_TEMP/hablame-signing.jks"
 
-            echo "HABLAME_KEYSTORE_PATH=$RUNNER_TEMP/hablame-signing.jks" \
-              >> "$GITHUB_ENV"
-
-            echo "HABLAME_KEYSTORE_PASSWORD=$HABLAME_KEYSTORE_PASSWORD" \
-              >> "$GITHUB_ENV"
-
-            echo "HABLAME_KEY_ALIAS=$HABLAME_KEY_ALIAS" \
-              >> "$GITHUB_ENV"
-
-            echo "HABLAME_KEY_PASSWORD=$HABLAME_KEY_PASSWORD" \
-              >> "$GITHUB_ENV"
+            echo "HABLAME_KEYSTORE_PATH=$RUNNER_TEMP/hablame-signing.jks" >> "$GITHUB_ENV"
+            echo "HABLAME_KEYSTORE_PASSWORD=$HABLAME_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "HABLAME_KEY_ALIAS=$HABLAME_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "HABLAME_KEY_PASSWORD=$HABLAME_KEY_PASSWORD" >> "$GITHUB_ENV"
 
             echo "Firma estable de GitHub configurada."
 
@@ -130,8 +111,7 @@ jobs:
             echo "HABLAME_KEY_ALIAS=" >> "$GITHUB_ENV"
             echo "HABLAME_KEY_PASSWORD=" >> "$GITHUB_ENV"
 
-            echo "AVISO: No hay secretos de firma."
-            echo "Se usará la firma debug de Gradle."
+            echo "AVISO: No hay secretos de firma; se usará la firma debug de Gradle."
 
           fi
 
@@ -140,43 +120,35 @@ jobs:
         with:
           gradle-version: "8.10"
 
-      - name: Compilar APK 1.0.1
+      - name: Compilar APK 1.0.2
         shell: bash
         run: |
           cd "$PROJECT_DIR"
-
-          gradle assembleRelease \
-            --no-daemon \
-            --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace
 
       - name: Verificar APK generado
         shell: bash
         run: |
-
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
           test -f "$APK"
 
           ls -lh "$APK"
 
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify \
-            --verbose \
-            "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
       - name: Preparar Artifact
         shell: bash
         run: |
-
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
 
           cp \
             "$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk" \
-            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.1.apk"
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.2.apk"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.0.1
-          path: final-apk/Hablame-1.0.1.apk
+          name: Hablame-APK-1.0.2
+          path: final-apk/Hablame-1.0.2.apk
           if-no-files-found: error
