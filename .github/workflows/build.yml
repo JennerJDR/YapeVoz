@@ -1,4 +1,4 @@
-name: Construir Háblame 1.0.0
+name: Construir Háblame 1.0.1
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Descargar proyecto
         uses: actions/checkout@v5
 
@@ -16,32 +17,23 @@ jobs:
         shell: bash
         run: |
           ls -lah
-
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" \
-            -maxdepth 1 \
-            -type f \
-            -iname "*.zip" \
-            -print -quit)
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró el ZIP de Háblame."
-            exit 1
-          fi
-
-          echo "ZIP encontrado: $ZIP_FILE"
-          echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+          test -f "Háblame 1.0.1.zip"
+          echo "ZIP de Háblame 1.0.1 encontrado."
 
       - name: Descomprimir proyecto
         shell: bash
         run: |
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
 
-          unzip -q "$PROJECT_ZIP" \
+          unzip -q \
+            "$GITHUB_WORKSPACE/Háblame 1.0.1.zip" \
             -d "$GITHUB_WORKSPACE/buildsrc"
 
           echo "Buscando proyecto..."
+
           find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print
+            -name settings.gradle.kts \
+            -print
 
       - name: Configurar Java 17
         uses: actions/setup-java@v5
@@ -63,7 +55,8 @@ jobs:
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+            -name settings.gradle.kts \
+            -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: No se encontró settings.gradle.kts"
@@ -84,16 +77,29 @@ jobs:
           echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> \
             "$PROJECT_DIR/gradle.properties"
 
+      - name: Verificar firma permanente
+        shell: bash
+        run: |
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          test -f \
+            "$PROJECT_DIR/signing/hablame-permanent.jks"
+
+          test -f \
+            "$PROJECT_DIR/signing/signing.properties"
+
+          echo "Firma permanente encontrada."
+
       - name: Verificar estructura del proyecto
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
+            -name settings.gradle.kts \
+            -print -quit)
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
@@ -102,17 +108,15 @@ jobs:
           test -f "$PROJECT_DIR/gradle.properties"
           test -f "$PROJECT_DIR/app/build.gradle.kts"
           test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/MainActivity.kt"
-          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/HablameNotificationListener.kt"
-          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/CallStateReceiver.kt"
 
-          echo "Estructura del proyecto correcta."
+          echo "Estructura correcta."
 
-      - name: Compilar APK
+      - name: Compilar APK firmado
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+            -name settings.gradle.kts \
+            -print -quit)
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
@@ -121,17 +125,20 @@ jobs:
           echo "Compilando desde:"
           pwd
 
-          gradle assembleDebug --no-daemon --stacktrace
+          gradle assembleRelease \
+            --no-daemon \
+            --stacktrace
 
       - name: Buscar APK generado
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+            -name settings.gradle.kts \
+            -print -quit)
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
             echo "ERROR: No se encontró el APK."
@@ -147,7 +154,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.0-debug.apk"
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.1.apk"
 
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
 
@@ -157,11 +164,11 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
-            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.0-debug.apk"
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.1.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.0.0
-          path: final-apk/Hablame-1.0.0-debug.apk
+          name: Hablame-APK-1.0.1
+          path: final-apk/Hablame-1.0.1.apk
           if-no-files-found: error
