@@ -1,126 +1,70 @@
-name: Construir Pago Voz 1.2.6
+name: Construir APK Háblame
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Compilar Háblame 1.0.0
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar proyecto
-        uses: actions/checkout@v5
-
-      - name: Verificar ZIP
-        run: |
-          ls -lah
-          test -f PagoVoz-1.2.6.zip
-
-      - name: Descomprimir proyecto
-        run: |
-          mkdir -p buildsrc
-          unzip -q PagoVoz-1.2.6.zip -d buildsrc
-
-          echo "Buscando proyecto..."
-          find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
 
       - name: Configurar Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Configurar Android
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Configurar Gradle
+      - name: Instalar Android SDK 35
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Preparar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10'
+          gradle-version: "8.9"
 
-      - name: Configurar AndroidX
+      - name: Verificar estructura
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f gradle.properties
+          test -f app/build.gradle.kts
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/hablame/app/MainActivity.kt
+          test -f app/src/main/java/com/hablame/app/HablameNotificationListener.kt
+          test -f app/src/main/java/com/hablame/app/CallStateReceiver.kt
 
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Proyecto encontrado:"
-          echo "$PROJECT_DIR"
-
-          echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
-          echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
-          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
-
-      - name: Verificar firma permanente
+      - name: Compilar APK
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          gradle assembleDebug --no-daemon --stacktrace
 
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          test -f "$PROJECT_DIR/signing/pagovoz-release.jks"
-          test -f "$PROJECT_DIR/signing/signing.properties"
-
-          echo "Firma permanente encontrada."
-
-      - name: Compilar APK firmado
+      - name: Verificar APK generado
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          cd "$PROJECT_DIR"
-
-          gradle assembleRelease --no-daemon
-
-      - name: Buscar APK generado
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
-            find "$GITHUB_WORKSPACE/buildsrc" -type f -name "*.apk" -print
-            exit 1
-          fi
-
-          mkdir -p "$GITHUB_WORKSPACE/final-apk"
-
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.6.apk"
-
-          ls -lh "$GITHUB_WORKSPACE/final-apk/"
-
-      - name: Verificar firma del APK
-        shell: bash
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify \
-            --verbose \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz-1.2.6.apk"
-
-      - name: Guardar APK
+      - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.2.6
-          path: final-apk/PagoVoz-1.2.6.apk
+          name: Hablame-1.0.0-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
