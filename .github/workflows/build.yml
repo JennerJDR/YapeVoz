@@ -1,103 +1,184 @@
-name: Construir APK Háblame
+name: Construir APK Háblame 1.0.0
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
-
-permissions:
-  contents: read
 
 jobs:
   build:
-    name: Compilar Háblame 1.0.0
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Descargar repositorio
-        uses: actions/checkout@v7
+      - name: Descargar proyecto
+        uses: actions/checkout@v5
 
-      - name: Configurar Java 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
-
-      - name: Instalar Android SDK 35
+      - name: Verificar ZIP
         shell: bash
         run: |
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Buscar proyecto ZIP
-        shell: bash
-        run: |
-          echo "Archivos encontrados:"
+          echo "Archivos del repositorio:"
           ls -lah
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" \
+            -maxdepth 1 \
+            -type f \
+            -iname "*.zip" \
+            -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró ningún ZIP del proyecto."
+            echo "ERROR: No se encontró el ZIP de Háblame."
             exit 1
           fi
 
-          echo "ZIP encontrado: $ZIP_FILE"
+          echo "ZIP encontrado:"
+          echo "$ZIP_FILE"
+
           echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
-      - name: Descomprimir proyecto Háblame
+      - name: Descomprimir proyecto
         shell: bash
         run: |
-          echo "Descomprimiendo: $PROJECT_ZIP"
+          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
 
-          unzip -o "$PROJECT_ZIP" -d .
+          unzip -q "$PROJECT_ZIP" \
+            -d "$GITHUB_WORKSPACE/buildsrc"
 
-          echo "Contenido después de descomprimir:"
-          ls -lah
+          echo "Proyecto descomprimido."
+
+          echo "Buscando settings.gradle.kts..."
+          find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Android
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: Configurar AndroidX
+        shell: bash
+        run: |
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          echo "Proyecto encontrado:"
+          echo "$PROJECT_DIR"
+
+          echo "android.useAndroidX=true" > \
+            "$PROJECT_DIR/gradle.properties"
+
+          echo "android.enableJetifier=true" >> \
+            "$PROJECT_DIR/gradle.properties"
+
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> \
+            "$PROJECT_DIR/gradle.properties"
 
       - name: Verificar estructura del proyecto
         shell: bash
         run: |
-          echo "Verificando archivos principales..."
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
 
-          test -f settings.gradle.kts
-          test -f build.gradle.kts
-          test -f gradle.properties
-          test -f app/build.gradle.kts
-          test -f app/src/main/AndroidManifest.xml
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
 
-          echo "Estructura del proyecto correcta."
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-      - name: Preparar Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+          echo "Verificando:"
+          echo "$PROJECT_DIR"
+
+          test -f "$PROJECT_DIR/settings.gradle.kts"
+          test -f "$PROJECT_DIR/build.gradle.kts"
+          test -f "$PROJECT_DIR/gradle.properties"
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/MainActivity.kt"
+          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/HablameNotificationListener.kt"
+          test -f "$PROJECT_DIR/app/src/main/java/com/hablame/app/CallStateReceiver.kt"
+
+          echo "Estructura correcta."
 
       - name: Compilar APK
         shell: bash
         run: |
-          gradle assembleDebug --no-daemon --stacktrace
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
 
-      - name: Verificar APK generado
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          cd "$PROJECT_DIR"
+
+          echo "Compilando desde:"
+          pwd
+
+          gradle assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+      - name: Buscar APK generado
         shell: bash
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
 
-      - name: Publicar APK como Artifact
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: No se encontró el APK."
+
+            find "$GITHUB_WORKSPACE/buildsrc" \
+              -type f \
+              -name "*.apk" \
+              -print
+
+            exit 1
+          fi
+
+          mkdir -p "$GITHUB_WORKSPACE/final-apk"
+
+          cp "$APK" \
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.0-debug.apk"
+
+          echo "APK encontrado:"
+          ls -lh "$GITHUB_WORKSPACE/final-apk/"
+
+      - name: Verificar APK
+        shell: bash
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify \
+            --verbose \
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.0.0-debug.apk"
+
+      - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-1.0.0-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Hablame-APK-1.0.0
+          path: final-apk/Hablame-1.0.0-debug.apk
           if-no-files-found: error
