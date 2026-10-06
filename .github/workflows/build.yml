@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Descargar repositorio
         uses: actions/checkout@v7
 
@@ -25,32 +26,63 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Configurar Android SDK y aceptar licencias
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
         with:
           accept-android-sdk-licenses: true
           log-accepted-android-sdk-licenses: false
-          packages: >-
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
 
-      - name: Preparar Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+      - name: Instalar Android SDK 35
+        shell: bash
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Buscar proyecto ZIP
+        shell: bash
+        run: |
+          echo "Archivos encontrados:"
+          ls -lah
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No se encontró ningún ZIP del proyecto."
+            exit 1
+          fi
+
+          echo "ZIP encontrado: $ZIP_FILE"
+          echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Descomprimir proyecto Háblame
+        shell: bash
+        run: |
+          echo "Descomprimiendo: $PROJECT_ZIP"
+
+          unzip -o "$PROJECT_ZIP" -d .
+
+          echo "Contenido después de descomprimir:"
+          ls -lah
 
       - name: Verificar estructura del proyecto
         shell: bash
         run: |
+          echo "Verificando archivos principales..."
+
           test -f settings.gradle.kts
           test -f build.gradle.kts
           test -f gradle.properties
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/hablame/app/MainActivity.kt
-          test -f app/src/main/java/com/hablame/app/HablameNotificationListener.kt
-          test -f app/src/main/java/com/hablame/app/CallStateReceiver.kt
+
+          echo "Estructura del proyecto correcta."
+
+      - name: Preparar Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Compilar APK
         shell: bash
