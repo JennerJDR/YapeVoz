@@ -42,7 +42,11 @@ jobs:
       - name: Buscar ZIP de Háblame 1.0.3
         shell: bash
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.0.3.zip" -print -quit)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" \
+            -maxdepth 1 \
+            -type f \
+            -name "Háblame 1.0.3.zip" \
+            -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
             echo "ERROR: No se encontró Háblame 1.0.3.zip en la raíz del repositorio."
@@ -59,16 +63,22 @@ jobs:
         run: |
           rm -rf "$GITHUB_WORKSPACE/buildsrc"
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
-          unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
+
+          unzip -q "$PROJECT_ZIP" \
+            -d "$GITHUB_WORKSPACE/buildsrc"
 
       - name: Verificar proyecto
         shell: bash
         run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -name settings.gradle.kts \
+            -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
-            find "$GITHUB_WORKSPACE/buildsrc" -maxdepth 4 -type f | sort
+            find "$GITHUB_WORKSPACE/buildsrc" \
+              -maxdepth 4 \
+              -type f | sort
             exit 1
           fi
 
@@ -81,41 +91,6 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Preparar firma permanente
-        shell: bash
-        env:
-          HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
-          HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
-          HABLAME_KEY_ALIAS: ${{ secrets.HABLAME_KEY_ALIAS }}
-          HABLAME_KEY_PASSWORD: ${{ secrets.HABLAME_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "$HABLAME_KEYSTORE_BASE64" ] || \
-             [ -z "$HABLAME_KEYSTORE_PASSWORD" ] || \
-             [ -z "$HABLAME_KEY_ALIAS" ] || \
-             [ -z "$HABLAME_KEY_PASSWORD" ]; then
-
-            echo "ERROR: Faltan los secretos de firma permanente."
-            echo "Debes configurar:"
-            echo "HABLAME_KEYSTORE_BASE64"
-            echo "HABLAME_KEYSTORE_PASSWORD"
-            echo "HABLAME_KEY_ALIAS"
-            echo "HABLAME_KEY_PASSWORD"
-            exit 1
-          fi
-
-          echo "$HABLAME_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hablame-signing.jks"
-
-          test -s "$RUNNER_TEMP/hablame-signing.jks"
-
-          echo "HABLAME_KEYSTORE_PATH=$RUNNER_TEMP/hablame-signing.jks" >> "$GITHUB_ENV"
-          echo "HABLAME_KEYSTORE_PASSWORD=$HABLAME_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "HABLAME_KEY_ALIAS=$HABLAME_KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "HABLAME_KEY_PASSWORD=$HABLAME_KEY_PASSWORD" >> "$GITHUB_ENV"
-
-          echo "Firma permanente configurada correctamente."
-
       - name: Preparar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -125,19 +100,28 @@ jobs:
         shell: bash
         run: |
           cd "$PROJECT_DIR"
-          gradle assembleRelease --no-daemon --stacktrace
+
+          gradle assembleRelease \
+            --no-daemon \
+            --stacktrace
 
       - name: Verificar APK generado
         shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
-          test -f "$APK"
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: No se encontró el APK generado."
+            exit 1
+          fi
 
           echo "APK generado:"
           ls -lh "$APK"
 
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify \
+            --verbose \
+            "$APK"
 
       - name: Preparar Artifact
         shell: bash
