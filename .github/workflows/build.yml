@@ -92,4 +92,49 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Preparar Gradle 8.10
-        uses:
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10"
+
+      - name: Compilar APK 1.1.6
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+
+          gradle assembleRelease \
+            --no-daemon \
+            --stacktrace
+
+      - name: Verificar APK generado
+        shell: bash
+        run: |
+          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: No se encontró el APK generado."
+            exit 1
+          fi
+
+          echo "APK generado:"
+          ls -lh "$APK"
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify \
+            --verbose \
+            "$APK"
+
+      - name: Preparar Artifact
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/final-apk"
+
+          cp \
+            "$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk" \
+            "$GITHUB_WORKSPACE/final-apk/Hablame-1.1.6.apk"
+
+      - name: Publicar Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hablame-APK-1.1.6
+          path: final-apk/Hablame-1.1.6.apk
+          if-no-files-found: error
