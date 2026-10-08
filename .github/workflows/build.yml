@@ -1,18 +1,16 @@
-name: Construir Háblame 1.1.9
+name: Build Háblame 1.2.0 APK
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - master
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Compilar Háblame 1.1.9
     runs-on: ubuntu-latest
 
     steps:
@@ -23,55 +21,36 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
         with:
           accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
 
-      - name: Instalar Android SDK 35
-        shell: bash
+      - name: Instalar herramientas Android
         run: |
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Buscar ZIP de Háblame 1.1.9
-        shell: bash
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: Preparar proyecto
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" \
-            -maxdepth 1 \
-            -type f \
-            -name "Háblame 1.1.9.zip" \
-            -print -quit)
+          set -e
+          ZIP_FILE="Háblame 1.2.0.zip"
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró Háblame 1.1.9.zip."
-            ls -lah
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: No se encontró $ZIP_FILE en la raíz del repositorio."
             exit 1
           fi
 
-          echo "ZIP encontrado: $ZIP_FILE"
-          echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+          mkdir -p buildsrc
+          unzip -q "$ZIP_FILE" -d buildsrc
 
-      - name: Descomprimir proyecto
-        shell: bash
-        run: |
-          rm -rf "$GITHUB_WORKSPACE/buildsrc"
-          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
-
-          unzip -q "$PROJECT_ZIP" \
-            -d "$GITHUB_WORKSPACE/buildsrc"
-
-      - name: Verificar proyecto
-        shell: bash
-        run: |
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts \
-            -print -quit)
+          SETTINGS_FILE=$(find buildsrc -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: No se encontró settings.gradle.kts."
@@ -79,56 +58,43 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Proyecto encontrado: $PROJECT_DIR"
 
-      - name: Preparar Gradle 8.10
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.10"
-
-      - name: Compilar APK 1.1.9
-        shell: bash
+      - name: Compilar APK Release
         run: |
+          set -e
           cd "$PROJECT_DIR"
+          gradle assembleRelease --no-daemon --stacktrace
 
-          gradle assembleRelease \
-            --no-daemon \
-            --stacktrace
-
-      - name: Verificar APK generado
-        shell: bash
+      - name: Verificar APK
         run: |
-          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          set -e
+          APK=$(find "$PROJECT_DIR" -path '*/build/outputs/apk/release/*.apk' -print -quit)
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: No se encontró el APK."
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se encontró el APK compilado."
             exit 1
           fi
 
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify \
-            --verbose \
-            "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
-          ls -lh "$APK"
+          if [ ! -x "$APKSIGNER" ]; then
+            APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          fi
 
-      - name: Preparar APK
-        shell: bash
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/final-apk"
+          if [ -z "$APKSIGNER" ]; then
+            echo "ERROR: No se encontró apksigner."
+            exit 1
+          fi
 
-          cp \
-            "$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk" \
-            "$GITHUB_WORKSPACE/final-apk/Hablame-1.1.9.apk"
+          "$APKSIGNER" verify "$APK"
+
+          mkdir -p "$GITHUB_WORKSPACE/apk-output"
+          cp "$APK" "$GITHUB_WORKSPACE/apk-output/Hablame-1.2.0.apk"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.1.9
-          path: final-apk/Hablame-1.1.9.apk
+          name: Hablame-APK-1.2.0
+          path: apk-output/Hablame-1.2.0.apk
           if-no-files-found: error
