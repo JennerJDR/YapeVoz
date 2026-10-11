@@ -3,20 +3,20 @@ name: Construir Háblame 1.4.1
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    paths:
+      - "Háblame 1.4.1.zip"
+      - ".github/workflows/build.yml"
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Compilar Háblame 1.4.1
+    name: Compilar APK Háblame 1.4.1
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar repositorio
+      - name: Descargar archivos del repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -30,58 +30,76 @@ jobs:
         with:
           packages: ""
 
-      - name: Instalar componentes Android SDK
+      - name: Instalar componentes del Android SDK
         shell: bash
         run: |
           set -e
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+
+          yes | sdkmanager --licenses >/dev/null || true
+
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Buscar ZIP del proyecto
+      - name: Buscar y extraer el proyecto Háblame 1.4.1
         shell: bash
         run: |
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.1.zip"
+          set -e
+
+          ZIP_FILE="Háblame 1.4.1.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró Háblame 1.4.1.zip en la raíz del repositorio."
-            ls -lah "$GITHUB_WORKSPACE"
+            echo "::error::No se encontró $ZIP_FILE en la raíz del repositorio."
+            echo "Archivos ZIP disponibles:"
+            find . -maxdepth 3 -type f -iname "*.zip" -print
             exit 1
           fi
 
-          echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+          mkdir -p proyecto_hablame
 
-      - name: Descomprimir proyecto
-        shell: bash
-        run: |
-          set -e
-          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
-          unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
+          unzip -q "$ZIP_FILE" -d proyecto_hablame
 
-      - name: Verificar estructura y versión
-        shell: bash
-        run: |
-          set -e
+          echo "Contenido extraído:"
+          find proyecto_hablame -maxdepth 3 -type f \
+            \( -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \
+            -o -name "build.gradle" \
+            -o -name "build.gradle.kts" \) -print
 
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -name settings.gradle.kts -print -quit)
+          PROJECT_DIR="$(find proyecto_hablame -type f \
+            \( -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \) \
+            -print -quit | xargs -r dirname)"
 
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "::error::No se encontró settings.gradle ni settings.gradle.kts dentro del ZIP."
             exit 1
           fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-
-          grep -Fq 'versionName = "1.4.1"' \
-            "$PROJECT_DIR/app/build.gradle.kts"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Proyecto encontrado en: $PROJECT_DIR"
+
+      - name: Comprobar la versión del proyecto
+        shell: bash
+        run: |
+          set -e
+
+          GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
+
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "::error::No se encontró app/build.gradle.kts."
+            exit 1
+          fi
+
+          echo "Configuración de versión:"
+          grep -nE 'versionCode|versionName|applicationId' \
+            "$GRADLE_FILE" || true
+
+          if ! grep -q 'versionName.*1\.4\.1' "$GRADLE_FILE"; then
+            echo "::error::El proyecto no parece tener versionName 1.4.1."
+            exit 1
+          fi
 
       - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
@@ -90,32 +108,51 @@ jobs:
 
       - name: Compilar APK
         shell: bash
+        working-directory: .
         run: |
           set -e
+
           cd "$PROJECT_DIR"
-          gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Verificar APK
+          echo "Versión de Java:"
+          java -version
+
+          echo "Versión de Gradle:"
+          gradle --version
+
+          echo "Iniciando compilación de Háblame 1.4.1..."
+
+          gradle \
+            --no-daemon \
+            --stacktrace \
+            assembleRelease
+
+      - name: Preparar APK con nombre de versión
         shell: bash
         run: |
           set -e
-          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-          test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify --verbose "$APK"
 
-      - name: Preparar APK
-        shell: bash
-        run: |
-          set -e
-          mkdir -p final-apk
-          cp "$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk" \
-            final-apk/Hablame-1.4.1.apk
+          APK_SOURCE="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
-      - name: Publicar APK
+          if [ ! -f "$APK_SOURCE" ]; then
+            echo "::error::No se encontró el APK esperado."
+            echo "Archivos APK generados:"
+            find "$PROJECT_DIR/app/build/outputs" \
+              -type f -name "*.apk" -print 2>/dev/null || true
+            exit 1
+          fi
+
+          mkdir -p salida_apk
+
+          cp "$APK_SOURCE" "salida_apk/Hablame-1.4.1.apk"
+
+          echo "APK preparado:"
+          ls -lh salida_apk/Hablame-1.4.1.apk
+
+      - name: Guardar APK como artefacto descargable
         uses: actions/upload-artifact@v4
         with:
           name: Hablame-APK-1.4.1
-          path: final-apk/Hablame-1.4.1.apk
+          path: salida_apk/Hablame-1.4.1.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
