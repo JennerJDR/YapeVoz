@@ -1,18 +1,16 @@
-name: Construir Háblame 1.3.9
+name: Construir APK Háblame
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Compilar Háblame 1.3.9
+    name: Compilar Háblame 1.4.0
     runs-on: ubuntu-latest
 
     steps:
@@ -25,39 +23,22 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Localizar Android SDK
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar componentes Android SDK 35
         shell: bash
         run: |
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-
-          SDKMANAGER=$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: No se encontró sdkmanager en $SDK_ROOT/cmdline-tools"
-            ls -R "$SDK_ROOT" | head -200 || true
-            exit 1
-          fi
-
-          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
-
-      - name: Aceptar licencias e instalar Android SDK 35
-        shell: bash
-        run: |
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Buscar ZIP del proyecto
         shell: bash
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f \
-            \( -name "Háblame 1.3.9.zip" -o -name "Háblame%201.3.9.zip" \) \
-            -print -quit)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.4.0.zip" -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró Háblame 1.3.9.zip en la raíz del repositorio."
+            echo "ERROR: Sube Háblame 1.4.0.zip a la raíz del repositorio."
             ls -lah
             exit 1
           fi
@@ -67,18 +48,16 @@ jobs:
       - name: Descomprimir proyecto
         shell: bash
         run: |
-          rm -rf "$GITHUB_WORKSPACE/buildsrc"
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
           unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
 
-      - name: Verificar proyecto
+      - name: Verificar proyecto y versión
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
-            find "$GITHUB_WORKSPACE/buildsrc" -maxdepth 5 -type f | sort
+            echo "ERROR: No se encontró settings.gradle.kts."
             exit 1
           fi
 
@@ -86,7 +65,8 @@ jobs:
 
           test -f "$PROJECT_DIR/app/build.gradle.kts"
           test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          grep -q 'versionName = "1.3.9"' "$PROJECT_DIR/app/build.gradle.kts"
+
+          grep -q 'versionName = "1.4.0"' "$PROJECT_DIR/app/build.gradle.kts"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
@@ -105,19 +85,14 @@ jobs:
         shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-          test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
-      - name: Preparar artefacto
-        shell: bash
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/final-apk"
-          cp "$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk" \
-            "$GITHUB_WORKSPACE/final-apk/Hablame-1.3.9.apk"
+          test -f "$APK"
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.3.9
-          path: final-apk/Hablame-1.3.9.apk
+          name: Hablame-APK-1.4.0
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
