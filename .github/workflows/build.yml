@@ -1,10 +1,10 @@
-name: Construir Háblame 1.4.1
+name: Construir Háblame 1.4.3
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Háblame 1.4.1.zip"
+      - "Háblame 1.4.3.zip"
       - ".github/workflows/build.yml"
 
 permissions:
@@ -12,8 +12,14 @@ permissions:
 
 jobs:
   build:
-    name: Compilar APK Háblame 1.4.1
+    name: Compilar APK Háblame 1.4.3
     runs-on: ubuntu-latest
+
+    env:
+      HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
+      HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
+      HABLAME_KEY_PASSWORD: ${{ secrets.HABLAME_KEY_PASSWORD }}
+      HABLAME_KEY_ALIAS: ${{ secrets.HABLAME_KEY_ALIAS }}
 
     steps:
       - name: Descargar archivos del repositorio
@@ -34,72 +40,75 @@ jobs:
         shell: bash
         run: |
           set -e
-
           yes | sdkmanager --licenses >/dev/null || true
-
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Buscar y extraer el proyecto Háblame 1.4.1
+      - name: Buscar y extraer Háblame 1.4.3
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE="Háblame 1.4.1.zip"
+          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.3.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::No se encontró $ZIP_FILE en la raíz del repositorio."
-            echo "Archivos ZIP disponibles:"
-            find . -maxdepth 3 -type f -iname "*.zip" -print
+            echo "::error::No se encontró Háblame 1.4.3.zip en la raíz del repositorio."
+            find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname "*.zip" -print
             exit 1
           fi
 
-          mkdir -p proyecto_hablame
+          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
+          unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/buildsrc"
 
-          unzip -q "$ZIP_FILE" -d proyecto_hablame
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -type f -name settings.gradle.kts -print -quit)
 
-          echo "Contenido extraído:"
-          find proyecto_hablame -maxdepth 3 -type f \
-            \( -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \) -print
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
+            exit 1
+          fi
 
-          PROJECT_DIR="$(find proyecto_hablame -type f \
-            \( -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \) \
-            -print -quit | xargs -r dirname)"
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "::error::No se encontró settings.gradle ni settings.gradle.kts dentro del ZIP."
+          if [ ! -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
+            echo "::error::No se encontró app/build.gradle.kts."
+            exit 1
+          fi
+
+          if [ ! -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml" ]; then
+            echo "::error::No se encontró AndroidManifest.xml."
             exit 1
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Proyecto encontrado en: $PROJECT_DIR"
+          echo "Proyecto encontrado: $PROJECT_DIR"
 
-      - name: Comprobar la versión del proyecto
+      - name: Verificar versión y aplicación
         shell: bash
         run: |
           set -e
 
           GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
 
-          if [ ! -f "$GRADLE_FILE" ]; then
-            echo "::error::No se encontró app/build.gradle.kts."
+          grep -q 'versionName = "1.4.3"' "$GRADLE_FILE" || {
+            echo "::error::El proyecto no tiene versionName 1.4.3."
             exit 1
-          fi
+          }
 
-          echo "Configuración de versión:"
-          grep -nE 'versionCode|versionName|applicationId' \
-            "$GRADLE_FILE" || true
-
-          if ! grep -q 'versionName.*1\.4\.1' "$GRADLE_FILE"; then
-            echo "::error::El proyecto no parece tener versionName 1.4.1."
+          grep -q 'versionCode = 46' "$GRADLE_FILE" || {
+            echo "::error::El proyecto no tiene versionCode 46."
             exit 1
-          fi
+          }
+
+          grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE" || {
+            echo "::error::El applicationId no coincide."
+            exit 1
+          }
+
+          echo "Versión comprobada:"
+          grep -nE 'applicationId|versionCode|versionName' "$GRADLE_FILE"
 
       - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
@@ -108,51 +117,37 @@ jobs:
 
       - name: Compilar APK
         shell: bash
-        working-directory: .
         run: |
           set -e
-
           cd "$PROJECT_DIR"
+          gradle assembleRelease --no-daemon --stacktrace
 
-          echo "Versión de Java:"
-          java -version
-
-          echo "Versión de Gradle:"
-          gradle --version
-
-          echo "Iniciando compilación de Háblame 1.4.1..."
-
-          gradle \
-            --no-daemon \
-            --stacktrace \
-            assembleRelease
-
-      - name: Preparar APK con nombre de versión
+      - name: Verificar APK generado
         shell: bash
         run: |
           set -e
 
-          APK_SOURCE="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          APK_SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
-          if [ ! -f "$APK_SOURCE" ]; then
-            echo "::error::No se encontró el APK esperado."
-            echo "Archivos APK generados:"
+          if [ ! -f "$APK" ]; then
+            echo "::error::No se encontró app-release.apk."
             find "$PROJECT_DIR/app/build/outputs" \
-              -type f -name "*.apk" -print 2>/dev/null || true
+              -type f -name "*.apk" -print || true
             exit 1
           fi
 
-          mkdir -p salida_apk
+          if [ -x "$APK_SIGNER" ]; then
+            "$APK_SIGNER" verify --verbose "$APK"
+          else
+            echo "::error::No se encontró la herramienta apksigner."
+            exit 1
+          fi
 
-          cp "$APK_SOURCE" "salida_apk/Hablame-1.4.1.apk"
-
-          echo "APK preparado:"
-          ls -lh salida_apk/Hablame-1.4.1.apk
-
-      - name: Guardar APK como artefacto descargable
+      - name: Publicar APK descargable
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.4.1
-          path: salida_apk/Hablame-1.4.1.apk
+          name: Hablame-APK-1.4.3
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
