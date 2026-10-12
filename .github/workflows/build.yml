@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Compilar Háblame 1.5.6
+    name: Compilar Háblame 1.5.7
     runs-on: ubuntu-latest
 
     env:
@@ -29,7 +29,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # CORRECCIÓN: actualizar a setup-android@v4
       - name: Preparar Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -47,14 +46,17 @@ jobs:
       - name: Buscar ZIP del proyecto
         shell: bash
         run: |
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.5.6.zip"
+          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.5.7.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::No se encontró Háblame 1.5.6.zip en la raíz."
+            echo "::error::No se encontró Háblame 1.5.7.zip en la raíz del repositorio."
+            echo "Archivos ZIP encontrados:"
+            find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname "*.zip" -print
             exit 1
           fi
 
           echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+          echo "ZIP encontrado correctamente."
 
       - name: Extraer proyecto
         shell: bash
@@ -67,7 +69,7 @@ jobs:
             -type f -name "settings.gradle.kts" -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "::error::No se encontró settings.gradle.kts."
+            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
             exit 1
           fi
 
@@ -84,47 +86,49 @@ jobs:
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Proyecto extraído correctamente."
 
-      - name: Verificar versión
+      - name: Verificar versión e identificador
         shell: bash
         run: |
           GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
 
-          grep -q 'versionName = "1.5.6"' "$GRADLE_FILE" || {
-            echo "::error::La versión no es 1.5.6."
+          grep -q 'versionName = "1.5.7"' "$GRADLE_FILE" || {
+            echo "::error::La versión debe ser 1.5.7."
             exit 1
           }
 
-          grep -q 'versionCode = 60' "$GRADLE_FILE" || {
-            echo "::error::El versionCode no es 60."
+          grep -q 'versionCode = 61' "$GRADLE_FILE" || {
+            echo "::error::El versionCode debe ser 61."
             exit 1
           }
 
           grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE" || {
-            echo "::error::El applicationId no coincide."
+            echo "::error::El applicationId debe ser com.hablame.app."
             exit 1
           }
 
-          echo "Versión 1.5.6 verificada."
+          echo "Versión 1.5.7, versionCode 61 e identificador verificados."
 
       - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10"
 
-      - name: Compilar APK
+      - name: Compilar APK de lanzamiento
         shell: bash
         run: |
           cd "$PROJECT_DIR"
           gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Verificar APK
+      - name: Verificar APK generado
         shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
             echo "::error::No se encontró el APK generado."
+            echo "Archivos APK disponibles:"
             find "$PROJECT_DIR/app/build/outputs" \
               -type f -name "*.apk" -print || true
             exit 1
@@ -139,12 +143,12 @@ jobs:
 
           "$APKSIGNER" verify --verbose "$APK"
 
-          echo "APK verificado correctamente."
+          echo "La verificación de firma del APK terminó correctamente."
 
       - name: Publicar APK descargable
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.5.6
+          name: Hablame-APK-1.5.7
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
