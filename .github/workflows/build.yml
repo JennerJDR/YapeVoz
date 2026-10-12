@@ -12,6 +12,7 @@ jobs:
   build:
     name: Compilar Háblame 1.5.6
     runs-on: ubuntu-latest
+
     env:
       HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
       HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
@@ -30,8 +31,10 @@ jobs:
 
       - name: Preparar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools, platforms;android-35, build-tools;35.0.0'
 
-      - name: Instalar componentes Android SDK
+      - name: Aceptar licencias e instalar componentes Android
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
@@ -41,10 +44,12 @@ jobs:
         shell: bash
         run: |
           ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.5.6.zip"
+
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::No se encontró Háblame 1.5.6.zip en la raíz del repositorio."
             exit 1
           fi
+
           echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
       - name: Extraer proyecto
@@ -52,24 +57,50 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
           unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -type f -name settings.gradle.kts -print -quit)
+
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -type f -name settings.gradle.kts -print -quit)
+
           if [ -z "$SETTINGS_FILE" ]; then
             echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
             exit 1
           fi
+
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+
+          if [ ! -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
+            echo "::error::No se encontró app/build.gradle.kts."
+            exit 1
+          fi
+
+          if [ ! -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml" ]; then
+            echo "::error::No se encontró AndroidManifest.xml."
+            exit 1
+          fi
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Verificar versión
         shell: bash
         run: |
           GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
-          grep -q 'versionName = "1.5.6"' "$GRADLE_FILE"
-          grep -q 'versionCode = 60' "$GRADLE_FILE"
-          grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE"
-          echo "Versión 1.5.6 verificada."
+
+          grep -q 'versionName = "1.5.6"' "$GRADLE_FILE" || {
+            echo "::error::La versión no es 1.5.6."
+            exit 1
+          }
+
+          grep -q 'versionCode = 60' "$GRADLE_FILE" || {
+            echo "::error::El versionCode no es 60."
+            exit 1
+          }
+
+          grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE" || {
+            echo "::error::El applicationId no coincide."
+            exit 1
+          }
+
+          echo "Versión 1.5.6 verificada correctamente."
 
       - name: Configurar Gradle 8.10
         uses: gradle/actions/setup-gradle@v4
@@ -82,15 +113,18 @@ jobs:
           cd "$PROJECT_DIR"
           gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Verificar APK
+      - name: Verificar APK generado
         shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+
           if [ ! -f "$APK" ]; then
             echo "::error::No se encontró el APK generado."
-            find "$PROJECT_DIR/app/build/outputs" -type f -name "*.apk" -print || true
+            find "$PROJECT_DIR/app/build/outputs" \
+              -type f -name "*.apk" -print || true
             exit 1
           fi
+
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
       - name: Publicar APK descargable
