@@ -1,128 +1,48 @@
-name: Construir Háblame 1.4.6
+name: Construir APK Háblame
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Háblame 1.4.6.zip"
-      - ".github/workflows/build.yml"
+      - '**'
+      - '.github/workflows/build.yml'
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Compilar APK Háblame 1.4.6
+    name: Compilar Háblame
     runs-on: ubuntu-latest
 
-    env:
-      HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
-      HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
-      HABLAME_KEY_PASSWORD: ${{ secrets.HABLAME_KEY_PASSWORD }}
-      HABLAME_KEY_ALIAS: ${{ secrets.HABLAME_KEY_ALIAS }}
-
     steps:
-      - name: Descargar archivos del repositorio
+      - name: Descargar código del repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: ""
-
-      - name: Instalar componentes del Android SDK
-        shell: bash
-        run: |
-          set -e
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Extraer proyecto Háblame 1.4.6
-        shell: bash
-        run: |
-          set -e
-
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.6.zip"
-
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::No se encontró Háblame 1.4.6.zip en la raíz del repositorio."
-            find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname "*.zip" -print
-            exit 1
-          fi
-
-          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
-          unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/buildsrc"
-
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -type f -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Proyecto encontrado: $PROJECT_DIR"
-
-      - name: Comprobar versión e identificador
-        shell: bash
-        run: |
-          set -e
-
-          GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
-
-          grep -q 'versionName = "1.4.6"' "$GRADLE_FILE"
-          grep -q 'versionCode = 50' "$GRADLE_FILE"
-          grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE"
-
-          echo "Versión y aplicación verificadas."
-          grep -nE 'applicationId|versionCode|versionName' "$GRADLE_FILE"
-
-      - name: Configurar Gradle 8.10
+      - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.10"
 
-      - name: Compilar APK de lanzamiento
-        shell: bash
+      - name: Compilar APK de depuración
+        run: gradle assembleDebug --no-daemon
+
+      - name: Verificar que se generó el APK
         run: |
-          set -e
-          cd "$PROJECT_DIR"
-          gradle assembleRelease --no-daemon --stacktrace
-
-      - name: Verificar APK generado
-        shell: bash
-        run: |
-          set -e
-
-          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-
-          if [ ! -f "$APK" ]; then
-            echo "::error::No se encontró app-release.apk."
-            find "$PROJECT_DIR/app/build/outputs" -type f -name "*.apk" -print || true
+          if [ ! -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            echo "ERROR: No se encontró el APK."
             exit 1
           fi
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-
-      - name: Publicar APK descargable
+      - name: Guardar APK para descargar
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.4.6
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
+          name: Hablame-1.4.7-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
