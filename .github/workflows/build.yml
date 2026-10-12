@@ -29,8 +29,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # CORRECCIÓN: actualizar a setup-android@v4
       - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       - name: Instalar componentes Android SDK
         shell: bash
@@ -38,7 +41,6 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
 
           sdkmanager \
-            "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
@@ -62,7 +64,7 @@ jobs:
           unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
 
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
-            -type f -name settings.gradle.kts -print -quit)
+            -type f -name "settings.gradle.kts" -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "::error::No se encontró settings.gradle.kts."
@@ -128,8 +130,16 @@ jobs:
             exit 1
           fi
 
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify --verbose "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
+          if [ ! -f "$APKSIGNER" ]; then
+            echo "::error::No se encontró apksigner."
+            exit 1
+          fi
+
+          "$APKSIGNER" verify --verbose "$APK"
+
+          echo "APK verificado correctamente."
 
       - name: Publicar APK descargable
         uses: actions/upload-artifact@v4
