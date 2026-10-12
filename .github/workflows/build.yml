@@ -1,10 +1,10 @@
-name: Construir Háblame 1.4.5
+name: Construir Háblame 1.4.6
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Háblame 1.4.5.zip"
+      - "Háblame 1.4.6.zip"
       - ".github/workflows/build.yml"
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Compilar APK Háblame 1.4.5
+    name: Compilar APK Háblame 1.4.6
     runs-on: ubuntu-latest
 
     env:
@@ -46,15 +46,15 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Buscar y extraer Háblame 1.4.5
+      - name: Extraer proyecto Háblame 1.4.6
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.5.zip"
+          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.6.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::No se encontró Háblame 1.4.5.zip en la raíz del repositorio."
+            echo "::error::No se encontró Háblame 1.4.6.zip en la raíz del repositorio."
             find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname "*.zip" -print
             exit 1
           fi
@@ -62,7 +62,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
           unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/buildsrc"
 
-          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -type f -name settings.gradle.kts -print -quit)
+          SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
+            -type f -name settings.gradle.kts -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
             echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
@@ -77,18 +78,18 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Proyecto encontrado: $PROJECT_DIR"
 
-      - name: Verificar versión y aplicación
+      - name: Comprobar versión e identificador
         shell: bash
         run: |
           set -e
 
           GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
 
-          grep -q 'versionName = "1.4.5"' "$GRADLE_FILE"
-          grep -q 'versionCode = 48' "$GRADLE_FILE"
+          grep -q 'versionName = "1.4.6"' "$GRADLE_FILE"
+          grep -q 'versionCode = 50' "$GRADLE_FILE"
           grep -q 'applicationId = "com.hablame.app"' "$GRADLE_FILE"
 
-          echo "Versión comprobada:"
+          echo "Versión y aplicación verificadas."
           grep -nE 'applicationId|versionCode|versionName' "$GRADLE_FILE"
 
       - name: Configurar Gradle 8.10
@@ -96,7 +97,7 @@ jobs:
         with:
           gradle-version: "8.10"
 
-      - name: Compilar APK
+      - name: Compilar APK de lanzamiento
         shell: bash
         run: |
           set -e
@@ -121,7 +122,7 @@ jobs:
       - name: Publicar APK descargable
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.4.5
+          name: Hablame-APK-1.4.6
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
