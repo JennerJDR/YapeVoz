@@ -1,10 +1,10 @@
-name: Construir Háblame 1.4.3
+name: Construir Háblame 1.4.4
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Háblame 1.4.3.zip"
+      - "Háblame 1.4.4.zip"
       - ".github/workflows/build.yml"
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Compilar APK Háblame 1.4.3
+    name: Compilar APK Háblame 1.4.4
     runs-on: ubuntu-latest
 
     env:
@@ -46,15 +46,15 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Buscar y extraer Háblame 1.4.3
+      - name: Buscar y extraer Háblame 1.4.4
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.3.zip"
+          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.4.4.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::No se encontró Háblame 1.4.3.zip en la raíz del repositorio."
+            echo "::error::No se encontró Háblame 1.4.4.zip en la raíz del repositorio."
             find "$GITHUB_WORKSPACE" -maxdepth 2 -type f -iname "*.zip" -print
             exit 1
           fi
@@ -92,13 +92,13 @@ jobs:
 
           GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
 
-          grep -q 'versionName = "1.4.3"' "$GRADLE_FILE" || {
-            echo "::error::El proyecto no tiene versionName 1.4.3."
+          grep -q 'versionName = "1.4.4"' "$GRADLE_FILE" || {
+            echo "::error::El proyecto no tiene versionName 1.4.4."
             exit 1
           }
 
-          grep -q 'versionCode = 46' "$GRADLE_FILE" || {
-            echo "::error::El proyecto no tiene versionCode 46."
+          grep -q 'versionCode = 47' "$GRADLE_FILE" || {
+            echo "::error::El proyecto no tiene versionCode 47."
             exit 1
           }
 
@@ -137,17 +137,17 @@ jobs:
             exit 1
           fi
 
-          if [ -x "$APK_SIGNER" ]; then
-            "$APK_SIGNER" verify --verbose "$APK"
-          else
+          if [ ! -x "$APK_SIGNER" ]; then
             echo "::error::No se encontró la herramienta apksigner."
             exit 1
           fi
 
+          "$APK_SIGNER" verify --verbose "$APK"
+
       - name: Publicar APK descargable
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.4.3
+          name: Hablame-APK-1.4.4
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
