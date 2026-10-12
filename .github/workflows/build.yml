@@ -31,8 +31,11 @@ jobs:
 
       - name: Preparar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ""
 
       - name: Instalar componentes Android SDK 35
+        shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
@@ -40,17 +43,18 @@ jobs:
       - name: Buscar ZIP del proyecto
         shell: bash
         run: |
-          ZIP_FILE="$GITHUB_WORKSPACE/Háblame 1.5.0.zip"
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.5.0.zip" -print -quit)
 
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró Háblame 1.5.0.zip en la raíz del repositorio."
-            ls -lah "$GITHUB_WORKSPACE"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Sube Háblame 1.5.0.zip a la raíz del repositorio."
+            ls -lah
             exit 1
           fi
 
           echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
       - name: Descomprimir proyecto
+        shell: bash
         run: |
           mkdir -p "$GITHUB_WORKSPACE/buildsrc"
           unzip -q "$PROJECT_ZIP" -d "$GITHUB_WORKSPACE/buildsrc"
@@ -60,14 +64,13 @@ jobs:
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
 
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts."
-            exit 1
-          fi
+          test -n "$SETTINGS_FILE"
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
           test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+
           grep -q 'versionName = "1.5.0"' "$PROJECT_DIR/app/build.gradle.kts"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
@@ -78,14 +81,18 @@ jobs:
           gradle-version: "8.10"
 
       - name: Compilar APK
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
           gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Verificar APK
+      - name: Verificar APK generado
+        shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+
           test -f "$APK"
+
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
       - name: Publicar APK
