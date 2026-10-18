@@ -1,4 +1,4 @@
-name: Construir PagoVoz 1.3.5
+name: Construir PagoVoz 1.3.7
 
 on:
   workflow_dispatch:
@@ -17,14 +17,14 @@ jobs:
         run: |
           set -e
           ls -lah
-          test -f "PagoVoz 1.3.5.zip"
+          test -f "PagoVoz 1.3.7.zip"
 
       - name: Descomprimir proyecto
         shell: bash
         run: |
           set -e
           mkdir -p buildsrc
-          unzip -q "PagoVoz 1.3.5.zip" -d buildsrc
+          unzip -q "PagoVoz 1.3.7.zip" -d buildsrc
 
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
             -name settings.gradle.kts -print -quit)
@@ -108,13 +108,13 @@ jobs:
             verify --verbose "$APK"
 
           mkdir -p final-apk
-          cp "$APK" "final-apk/PagoVoz 1.3.5.apk"
+          cp "$APK" "final-apk/PagoVoz 1.3.7.apk"
 
           ls -lh final-apk/
 
       - name: Guardar APK generado
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.3.5
-          path: final-apk/PagoVoz 1.3.5.apk
+          name: PagoVoz-APK-1.3.7
+          path: final-apk/PagoVoz 1.3.7.apk
           if-no-files-found: error
