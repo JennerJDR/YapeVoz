@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.2.7
+name: Construir Pago Voz 1.2.8
 
 on:
   workflow_dispatch:
@@ -15,12 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f "PagoVoz 1.2.7.zip"
+          test -f "PagoVoz 1.2.8.zip"
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q "PagoVoz 1.2.7.zip" -d buildsrc
+          unzip -q "PagoVoz 1.2.8.zip" -d buildsrc
 
           echo "Buscando proyecto..."
           find "$GITHUB_WORKSPACE/buildsrc" \
@@ -68,6 +68,11 @@ jobs:
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" \
             -name settings.gradle.kts -print -quit)
 
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: No se encontró settings.gradle.kts"
+            exit 1
+          fi
+
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
           test -f "$PROJECT_DIR/signing/pagovoz-release.jks"
@@ -106,7 +111,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.7.apk"
+            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.8.apk"
 
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
 
@@ -116,11 +121,11 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.7.apk"
+            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.8.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.2.7
-          path: final-apk/PagoVoz 1.2.7.apk
+          name: PagoVoz-APK-1.2.8
+          path: final-apk/PagoVoz 1.2.8.apk
           if-no-files-found: error
