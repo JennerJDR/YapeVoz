@@ -1,4 +1,4 @@
-name: Construir Pago Voz 1.2.8
+name: Construir Pago Voz 1.2.9
 
 on:
   workflow_dispatch:
@@ -15,13 +15,12 @@ jobs:
       - name: Verificar ZIP
         run: |
           ls -lah
-          test -f "PagoVoz 1.2.8.zip"
+          test -f "PagoVoz 1.2.9.zip"
 
       - name: Descomprimir proyecto
         run: |
           mkdir -p buildsrc
-          unzip -q "PagoVoz 1.2.8.zip" -d buildsrc
-
+          unzip -q "PagoVoz 1.2.9.zip" -d buildsrc
           echo "Buscando proyecto..."
           find "$GITHUB_WORKSPACE/buildsrc" \
             -name settings.gradle.kts -print
@@ -55,9 +54,7 @@ jobs:
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
-          echo "Proyecto encontrado:"
-          echo "$PROJECT_DIR"
-
+          echo "Proyecto encontrado: $PROJECT_DIR"
           echo "android.useAndroidX=true" > "$PROJECT_DIR/gradle.properties"
           echo "android.enableJetifier=true" >> "$PROJECT_DIR/gradle.properties"
           echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> "$PROJECT_DIR/gradle.properties"
@@ -87,7 +84,6 @@ jobs:
             -name settings.gradle.kts -print -quit)
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
           cd "$PROJECT_DIR"
 
           gradle assembleRelease --no-daemon
@@ -99,7 +95,6 @@ jobs:
             -name settings.gradle.kts -print -quit)
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
@@ -109,9 +104,7 @@ jobs:
           fi
 
           mkdir -p "$GITHUB_WORKSPACE/final-apk"
-
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.8.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.9.apk"
 
           ls -lh "$GITHUB_WORKSPACE/final-apk/"
 
@@ -121,11 +114,11 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
-            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.8.apk"
+            "$GITHUB_WORKSPACE/final-apk/PagoVoz 1.2.9.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.2.8
-          path: final-apk/PagoVoz 1.2.8.apk
+          name: PagoVoz-APK-1.2.9
+          path: final-apk/PagoVoz 1.2.9.apk
           if-no-files-found: error
