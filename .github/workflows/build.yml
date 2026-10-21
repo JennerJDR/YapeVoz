@@ -1,4 +1,4 @@
-name: Construir PagoVoz 1.4.1
+name: Construir PagoVoz 1.4.2
 
 on:
   workflow_dispatch:
@@ -7,20 +7,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v5
 
       - name: Verificar ZIP
-        run: test -f "PagoVoz 1.4.1.zip"
+        run: test -f "PagoVoz 1.4.2.zip"
 
       - name: Descomprimir proyecto
         shell: bash
         run: |
           set -e
           mkdir -p buildsrc
-          unzip -q "PagoVoz 1.4.1.zip" -d buildsrc
+          unzip -q "PagoVoz 1.4.2.zip" -d buildsrc
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
           test -n "$SETTINGS_FILE"
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
@@ -60,11 +59,11 @@ jobs:
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           mkdir -p final-apk
-          cp "$APK" "final-apk/PagoVoz 1.4.1.apk"
+          cp "$APK" "final-apk/PagoVoz 1.4.2.apk"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
         with:
-          name: PagoVoz-APK-1.4.1
-          path: final-apk/PagoVoz 1.4.1.apk
+          name: PagoVoz-APK-1.4.2
+          path: final-apk/PagoVoz 1.4.2.apk
           if-no-files-found: error
