@@ -10,9 +10,8 @@ permissions:
 
 jobs:
   build:
-    name: Compilar Háblame 1.5.9
+    name: Compilar Háblame 1.6.0
     runs-on: ubuntu-latest
-
     env:
       HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
       HABLAME_KEYSTORE_PASSWORD: ${{ secrets.HABLAME_KEYSTORE_PASSWORD }}
@@ -38,21 +37,17 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Buscar ZIP del proyecto
         shell: bash
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.5.9.zip" -print -quit)
-
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.6.0.zip" -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Sube Háblame 1.5.9.zip a la raíz del repositorio."
+            echo "ERROR: Sube Háblame 1.6.0.zip a la raíz del repositorio."
             ls -lah
             exit 1
           fi
-
           echo "PROJECT_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
       - name: Descomprimir proyecto
@@ -65,20 +60,12 @@ jobs:
         shell: bash
         run: |
           SETTINGS_FILE=$(find "$GITHUB_WORKSPACE/buildsrc" -name settings.gradle.kts -print -quit)
-
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: No se encontró settings.gradle.kts."
-            exit 1
-          fi
-
+          test -n "$SETTINGS_FILE"
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
           test -f "$PROJECT_DIR/app/build.gradle.kts"
           test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-
-          grep -q 'versionName = "1.5.9"' "$PROJECT_DIR/app/build.gradle.kts"
-          grep -q 'versionCode = 63' "$PROJECT_DIR/app/build.gradle.kts"
-
+          grep -q 'versionName = "1.6.0"' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'versionCode = 65' "$PROJECT_DIR/app/build.gradle.kts"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Preparar Gradle 8.10
@@ -96,17 +83,12 @@ jobs:
         shell: bash
         run: |
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: No se generó el APK de lanzamiento."
-            exit 1
-          fi
-
+          test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.5.9
+          name: Hablame-APK-1.6.0
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
