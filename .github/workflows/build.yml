@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Compilar Háblame 1.6.1
+    name: Compilar Háblame 1.6.2
     runs-on: ubuntu-latest
     env:
       HABLAME_KEYSTORE_BASE64: ${{ secrets.HABLAME_KEYSTORE_BASE64 }}
@@ -42,9 +42,9 @@ jobs:
       - name: Buscar ZIP del proyecto
         shell: bash
         run: |
-          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.6.1.zip" -print -quit)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "Háblame 1.6.2.zip" -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Sube Háblame 1.6.1.zip a la raíz del repositorio."
+            echo "ERROR: Sube Háblame 1.6.2.zip a la raíz del repositorio."
             ls -lah
             exit 1
           fi
@@ -64,8 +64,8 @@ jobs:
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           test -f "$PROJECT_DIR/app/build.gradle.kts"
           test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          grep -q 'versionName = "1.6.1"' "$PROJECT_DIR/app/build.gradle.kts"
-          grep -q 'versionCode = 66' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'versionName = "1.6.2"' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -q 'versionCode = 67' "$PROJECT_DIR/app/build.gradle.kts"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Preparar Gradle 8.10
@@ -89,6 +89,6 @@ jobs:
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hablame-APK-1.6.1
+          name: Hablame-APK-1.6.2
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
